@@ -1,0 +1,192 @@
+
+/* ========================= card ========================= */
+
+.card {
+  --card-width: 45px;
+  --card-height: 65px;
+  --card-rank-offset: 20px;
+  --card-border-width: 4px;
+  --card-border-radius: 6px;
+  --card-border-color: rgba( 0, 0, 0, .3 );
+  --card-shadow-depth: 5px;
+  --card-shadow-blur: 1px;
+  --card-shadow-color: rgba( 0, 0, 0, .1 );
+  --stripped-rotation: 225deg;
+  --stripped-width: 1px;
+  --card-selected-color: #ffeaa7;
+  --card-text-shadow-color: rgba( 0, 0, 0, 0.4 );
+  --card-not-selectable-opacity: 0.3;
+}
+
+.card {
+  cursor: default;
+  display: inline-block;
+  text-align: center;
+  vertical-align: middle;
+  border-radius: var( --card-border-radius );
+  border: 1px solid var( --card-border-color );
+
+  font-family: 'Lalezar', cursive;
+  font-size: 1.3em;
+}
+
+.card .card-content {
+  display: inline-block;
+  text-align: center;
+  vertical-align: middle;
+  border: 1px solid var( --card-shadow-color );
+  border-radius: calc( var( --card-border-radius ) - 2px );
+  margin: var( --card-border-width );
+  width: calc( 100% - ( 2 * var( --card-border-width ) ) - 2px );
+  height: calc( 100% - ( 2 * var( --card-border-width ) ) - 2px );
+}
+
+.card .card-rank {
+  display: inline-block;
+  margin-top: var( --card-rank-offset );
+}
+
+/* ========================= card size ========================= */
+
+.card {
+  width: var( --card-width );
+  height: var( --card-height );
+}
+
+/* ========================= card selection ========================= */
+
+.card {
+  background-color: var( --color-white );
+}
+
+.card.selected,
+.card.selectable:hover {
+  background-color: var( --card-selected-color );
+}
+
+.card.selected:hover,
+.card.selectable:hover {
+  cursor: pointer;
+
+  -webkit-box-shadow: var( --card-shadow-depth ) var( --card-shadow-depth ) var( --card-shadow-blur ) var( --card-shadow-color );
+          box-shadow: var( --card-shadow-depth ) var( --card-shadow-depth ) var( --card-shadow-blur ) var( --card-shadow-color );
+
+  -webkit-transform: translate( calc( -1 * var( --card-shadow-depth ) ), calc( -1 * var( --card-shadow-depth ) ) );
+      -ms-transform: translate( calc( -1 * var( --card-shadow-depth ) ), calc( -1 * var( --card-shadow-depth ) ) );
+          transform: translate( calc( -1 * var( --card-shadow-depth ) ), calc( -1 * var( --card-shadow-depth ) ) );
+}
+
+.card.not-selectable {
+  opacity: var( --card-not-selectable-opacity );
+}
+
+/* ========================= card rank ========================= */
+
+.card         .card-rank:before ,
+.card.no-rank .card-rank:before { content: " "; }
+.card.rank-1  .card-rank:before { content: "1"; }
+.card.rank-2  .card-rank:before { content: "2"; }
+.card.rank-3  .card-rank:before { content: "3"; }
+.card.rank-4  .card-rank:before { content: "4"; }
+.card.rank-5  .card-rank:before { content: "5"; }
+.card.rank-6  .card-rank:before { content: "6"; }
+.card.rank-7  .card-rank:before { content: "7"; }
+.card.rank-8  .card-rank:before { content: "8"; }
+.card.rank-9  .card-rank:before { content: "9"; }
+
+/* ========================= card suit ========================= */
+
+.card              .card-rank:after ,
+.card.no-suit      .card-rank:after { content: "?"; }
+.card.suit-spade   .card-rank:after { content: "♠"; }
+.card.suit-heart   .card-rank:after { content: "♥"; }
+.card.suit-diamond .card-rank:after { content: "♦"; }
+.card.suit-club    .card-rank:after { content: "♣"; }
+.card.suit-star    .card-rank:after { content: "★"; }
+.card.suit-dot     .card-rank:after { content: "⚫"; }
+.card.suit-square  .card-rank:after { content: "∎"; }
+
+/* ========================= card text shadow ========================= */
+
+.card {
+  text-shadow: 1px 1px var( --card-text-shadow-color );
+}
+
+/* ========================= card color ========================= */
+
+.card .card-content {
+  color: black;
+  background: white;
+}
+
+.card.no-color     .card-content { color: var( --color-light-grey  ); }
+.card.color-black  .card-content { color: var( --color-black       ); }
+.card.color-red    .card-content { color: var( --color-dark-red    ); }
+.card.color-yellow .card-content { color: var( --color-dark-yellow ); }
+.card.color-blue   .card-content { color: var( --color-dark-blue   ); }
+.card.color-green  .card-content { color: var( --color-dark-green  ); }
+
+.card                             .card-content {
+  color: black;
+  background: repeating-linear-gradient( var( --stripped-rotation ),
+    #fff,
+    #fff var( --stripped-width ),
+    #eee var( --stripped-width ),
+    #eee calc( 2 * var( --stripped-width ) )
+  );
+}
+
+.card.inverted-color              .card-content {
+  color: white;
+  background: repeating-linear-gradient( var( --stripped-rotation ),
+    #ddd,
+    #ddd var( --stripped-width ),
+    #bbb var( --stripped-width ),
+    #bbb calc( 2 * var( --stripped-width ) )
+  );
+}
+
+.card.inverted-color.color-blue   .card-content {
+  background: repeating-linear-gradient( var( --stripped-rotation ),
+    var( --color-light-blue ),
+    var( --color-light-blue ) var( --stripped-width ),
+    var( --color-dark-light-blue ) var( --stripped-width ),
+    var( --color-dark-light-blue ) calc( 2 * var( --stripped-width ) )
+  );
+}
+
+.card.inverted-color.color-yellow   .card-content {
+  background: repeating-linear-gradient( var( --stripped-rotation ),
+    var( --color-yellow ),
+    var( --color-yellow ) var( --stripped-width ),
+    var( --color-dark-yellow ) var( --stripped-width ),
+    var( --color-dark-yellow ) calc( 2 * var( --stripped-width ) )
+  );
+}
+
+.card.inverted-color.color-green   .card-content {
+  background: repeating-linear-gradient( var( --stripped-rotation ),
+    var( --color-green ),
+    var( --color-green ) var( --stripped-width ),
+    var( --color-dark-green ) var( --stripped-width ),
+    var( --color-dark-green ) calc( 2 * var( --stripped-width ) )
+  );
+}
+
+.card.inverted-color.color-red   .card-content {
+  background: repeating-linear-gradient( var( --stripped-rotation ),
+    var( --color-red ),
+    var( --color-red ) var( --stripped-width ),
+    var( --color-dark-red ) var( --stripped-width ),
+    var( --color-dark-red ) calc( 2 * var( --stripped-width ) )
+  );
+}
+
+.card.inverted-color.color-black   .card-content {
+  background: repeating-linear-gradient( var( --stripped-rotation ),
+    #444,
+    #444 var( --stripped-width ),
+    #222 var( --stripped-width ),
+    #222 calc( 2 * var( --stripped-width ) )
+  );
+}
