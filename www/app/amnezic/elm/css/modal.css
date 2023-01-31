@@ -1,0 +1,56 @@
+
+/* ========================= modal ========================= */
+
+
+
+.modal {
+  width: 100%;
+  height: 100%;
+  text-align: center;
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 100;
+}
+
+.modal .modal-container {
+    border: 1px solid #eee;
+    padding: 20px 30px;
+    background-color: white;
+    border-radius: 6px;
+    overflow: hidden;
+    z-index: 200;
+    margin: auto;
+    -webkit-box-shadow: 10px 10px 0px rgba(0,0,0,0.2);
+    box-shadow: 10px 10px 0px rgba(0,0,0,0.2);
+}
+
+.modal .modal-backdrop {
+    position: fixed;
+    width: 100%;
+    height: 100%;
+    top: 0px;
+    left: 0px;
+    z-index: 100;
+    background: rgba(0,0,0,0.4);
+}
+
+/* ========================= isOpen ========================= */
+
+.modal {
+  display: none;
+}
+
+.modal.modal-isOpen {
+  display: flex;
+}
+
+/*
+.modal-backdrop {
+  display: none;
+}
+
+.modal-isOpen .modal-backdrop {
+   display: block;
+}
+*/

@@ -1,0 +1,98 @@
+
+/* ========================= page ========================= */
+
+.page {
+  display: grid;
+  grid-column-gap: 0px;
+  grid-row-gap: 0px;
+  grid-template-columns: 1fr;
+  grid-template-rows: 50px 1fr; /* 30px; */
+  grid-template-areas: "page-header"
+                       "page-content";
+                       /* "page-footer"; */
+}
+
+.page .page-header  { grid-area: page-header; }
+.page .page-content { grid-area: page-content; padding: 10px; }
+.page .page-footer  { display: none; /* grid-area: page-footer; */ }
+
+/* ========================= players ========================= */
+
+.page-players .page-content {
+  display: grid;
+  grid-column-gap: 0px;
+  grid-row-gap: 0px;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 50px 1fr 1fr 1fr 1fr;
+  grid-template-areas: "player-alert player-alert"
+                       "player-1 player-2"
+                       "player-3 player-4"
+                       "player-5 player-6"
+                       "player-7 player-8";
+   grid-auto-flow: row;
+}
+
+.page-players .page-content .player-alert { grid-area: player-alert; }
+.page-players .page-content .player-1 { grid-area: player-1; }
+.page-players .page-content .player-2 { grid-area: player-2; }
+.page-players .page-content .player-3 { grid-area: player-3; }
+.page-players .page-content .player-4 { grid-area: player-4; }
+.page-players .page-content .player-5 { grid-area: player-5; }
+.page-players .page-content .player-6 { grid-area: player-6; }
+.page-players .page-content .player-7 { grid-area: player-7; }
+.page-players .page-content .player-8 { grid-area: player-8; }
+
+/* ========================= player ========================= */
+
+.page-players .page-content .player {
+  display: grid;
+  grid-column-gap: 0px;
+  grid-row-gap: 0px;
+  grid-template-columns: 100px 1fr;
+  grid-template-rows: 1fr;
+  grid-template-areas: "player-card player-info";
+  grid-auto-flow: row;
+}
+
+.page-players .page-content .player-card { grid-area: player-card; }
+.page-players .page-content .player-info { grid-area: player-info; }
+
+/* ========================= questions ========================= */
+
+.page-question .page-content {
+  display: grid;
+  padding: 10px;
+  grid-column-gap: 10px;
+  grid-row-gap: 10px;
+  grid-template-columns: 100px 1fr;
+  grid-template-rows: 1fr 1fr 1fr 1fr 1fr 1fr 80px 70px 3px;
+  grid-template-areas: "nb-1 choice-1"
+                       "nb-2 choice-2"
+                       "nb-3 choice-3"
+                       "nb-4 choice-4"
+                       "nb-5 choice-5"
+                       "nb-6 choice-6"
+                       "selected_cards selected_cards"
+                       "audio-button scores"
+                       "audio-progress audio-progress";
+  grid-auto-flow: row;
+}
+
+.page-question .page-content .nb-1 { grid-area: nb-1; }
+.page-question .page-content .nb-2 { grid-area: nb-2; }
+.page-question .page-content .nb-3 { grid-area: nb-3; }
+.page-question .page-content .nb-4 { grid-area: nb-4; }
+.page-question .page-content .nb-5 { grid-area: nb-5; }
+.page-question .page-content .nb-6 { grid-area: nb-6; }
+
+.page-question .page-content .choice-1 { grid-area: choice-1; }
+.page-question .page-content .choice-2 { grid-area: choice-2; }
+.page-question .page-content .choice-3 { grid-area: choice-3; }
+.page-question .page-content .choice-4 { grid-area: choice-4; }
+.page-question .page-content .choice-5 { grid-area: choice-5; }
+.page-question .page-content .choice-6 { grid-area: choice-6; }
+
+.page-question .page-content .audio-button { grid-area: audio-button; }
+.page-question .page-content .audio-progress { grid-area: audio-progress; }
+.page-question .page-content .selected_cards { grid-area: selected_cards; }
+.page-question .page-content .scores { grid-area: scores; }

@@ -1,0 +1,8 @@
+package model
+
+// //////////////////////////////////////////////////
+// theme
+
+type Theme interface {
+	Title() string
+}
