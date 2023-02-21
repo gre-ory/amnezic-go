@@ -1,0 +1,255 @@
+
+/* default */
+
+html {
+    font-family: sans-serif;
+    -ms-text-size-adjust: 100%;
+    -webkit-text-size-adjust: 100%
+}
+
+/* skeleton: 6 columns */
+
+body {
+    margin:0
+}
+
+.nav {
+    /* width: 100%; */
+    white-space: nowrap;
+    /* position: absolute; */
+    /* top: 0;        */
+    /* z-index: 8000; */
+}
+
+.nav .brand,
+.nav .menu,
+.nav .panel {
+    height: 34px;
+    line-height: 34px;
+}
+
+.nav .brand {
+    display: inline-block;
+    
+    overflow: hidden;
+    white-space: nowrap;
+    text-align: right;
+    padding: 0 10px;
+}
+
+.nav .menu {
+    display: inline-block;
+    /* min-width: 65.66666666666666%; */
+    overflow: hidden;
+    text-align: left;
+}
+
+.nav .menu a {
+    padding: 0 10px;
+}
+
+.nav .panel {
+    display: inline-block;
+    overflow: hidden;
+    white-space: nowrap;
+    text-align: right;
+}
+/*
+@media ( min-width: 990px ) {
+    .nav .brand {
+        width: 16.66666666666667%;
+    }
+    .nav .panel {
+        width: 16.66666666666667%;
+    }
+}
+*/
+
+.notifs {
+    display: inline-block;
+    /* position: absolute; */
+    /* top: 29px; */
+    /* z-index: 8001; */
+    width: 100%;  
+    text-align: center;
+}
+
+.notif {
+    display: inline-block;
+    min-width: 10px;
+    padding: 3px 7px;
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1;
+    vertical-align: baseline;
+    white-space: nowrap;
+    text-align: center;
+    background-color: #999;
+    border-radius: 10px;
+}
+
+.content {
+    display: inline-block;
+    margin-top: 40px; /* absolute nav */
+    margin-left: 18%;
+    width: 48%;  
+}
+
+.modal {
+    overflow: auto;
+    overflow-y: scroll;
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 9000;
+    -webkit-overflow-scrolling: touch;
+    outline: 0;
+}
+
+.modal {
+    /*  */
+}
+
+/* size */
+
+.container {
+    width: 800px;
+}
+
+.notification {
+    height: 40px;
+}
+
+.modal {
+    width: 100%;
+    background-color: rgba( 0, 0, 0, 0.3 );
+}
+
+.modal .panel {
+    width: 600px;
+    margin: 30px auto;
+}
+
+.modal .panel .header button {
+    float: right;
+}
+
+/* transition */
+
+.fade {
+    -webkit-transition: opacity .15s linear;
+    transition: opacity .15s linear;
+}
+
+/* button */
+
+.nav a {
+    white-space: nowrap;
+    text-decoration: none;
+}
+
+.button {
+    display: inline-block;
+    margin-bottom: 0;
+    font-weight: 400;
+    text-decoration: none;
+    text-align: center;
+    vertical-align: middle;
+    cursor: pointer;
+    background-image: none;
+    border: 1px solid transparent;
+    white-space: nowrap;
+    padding: 6px 12px;
+    font-size: 14px;
+    line-height: 1.42857143;
+    border-radius: 4px;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+}
+
+.nav button,
+.header button, {
+    padding: 4px 10px;
+}
+
+.nav .panel {
+    font-size: 14px;
+}
+
+/* color */
+
+/* blue        #5D9CEC   #4A89DC */
+/* light blue  #4FC1E9   #3BAFDA */
+/* mint        #48CFAD   #37BC9B */
+/* light green #A0D468   #8CC152 */
+/* yellow      #FFCE54   #F6BB42 */
+/* orange      #FC6E51   #E9573F */
+/* red         #ED5565   #DA4453 */
+/* violet      #AC92EC   #967ADC */
+/* pink        #EC87C0   #D770AD */
+/* light gray  #F5F7FA   #E6E9ED */
+/* gray        #CCD1D9   #AAB2BD */
+/* gray dark   #656D78   #434A54 */
+
+a {
+    color: #000;
+    background-color: transparent;
+}
+
+a:hover {
+    background-color: rgba( 255, 255, 255, 0.1 );
+}
+
+.nav {
+    color: #fff;
+    background-color: #434A54;
+    border-bottom: 4px solid #CCD1D9;
+}
+
+.nav .button {
+    color: #CCD1D9;
+}
+
+.nav .button:hover {
+    color: #fff;
+}
+
+.nav a {
+    color: #999;
+}
+
+.nav a:hover {
+    color: #fff;
+    background-color: transparent;
+}
+
+.nav a.current {
+    color: #fff;
+}
+
+.notif {
+    color: #fff;
+}
+
+.notif.loading {
+    background-color: #48CFAD; /* light green */
+}
+
+.notif.error {
+    background-color: #FC6E51; /* orange */
+}
+
+button {
+    color: #000;
+    background-color: #eee;
+}
+
+.modal .panel {
+    background: #fff;
+    border: 1px solid #eee;
+    border-radius: 4px;
+}

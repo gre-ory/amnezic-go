@@ -4,7 +4,8 @@ ifeq ($(version),)
 else
 	TAG=$(version)
 endif
-SERVER="server"
+BIN_DIR=bin
+SERVER=${BIN_DIR}/server
 
 ifneq ($(verbose),)
 	TEST_ARGS += -v
@@ -27,6 +28,6 @@ Q := @
 build:
 	$(Q)CGO_ENABLED=0 GOOS=linux go build $(GO_BUILD_FLAGS) -ldflags "${LDFLAGS}" -o ${SERVER} ${PACKAGE}
 run: build
-	PORT="9090" NAME="test" ${SERVER}
+	ENVIRONMENT="dev" APPLICATION_NAME="amnezic" APPLICATION_VERSION="9.9.9" LOG_CONFIG="dev" LOG_LEVEL="debug" ADDRESS=":9090" ${SERVER}
 test:
 	$(Q) go test -race ./...

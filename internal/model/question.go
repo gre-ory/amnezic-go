@@ -4,8 +4,8 @@ package model
 // question
 
 type Question struct {
-	Id     int64
-	Theme  Theme
-	Music  *Music
-	Answer []*Answer
+	Id      QuestionId
+	Theme   Theme
+	Music   Music
+	Answers []*Answer
 }

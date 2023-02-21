@@ -4,7 +4,8 @@ package model
 // game
 
 type Game struct {
-	Id        int64
+	Id        GameId
+	Version   int
 	Players   []*Player
 	Questions []*Question
 }

@@ -4,7 +4,7 @@ package model
 // player
 
 type Player struct {
-	Id     int64
+	Id     PlayerId
 	Name   string
 	Active bool
 	Score  int

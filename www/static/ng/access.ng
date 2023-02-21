@@ -1,0 +1,16 @@
+<ul class="nav navbar-nav navbar-right" ng-hide="auth.connected">
+    <form class="navbar-form navbar-left" role="search">
+        <div class="form-group">
+            <input type="text" class="form-control" ng-model="auth.email" placeholder="email">
+            <input type="password" class="form-control" ng-model="auth.password" placeholder="password">
+        </div>
+        <button type="submit" ng-click="login()" class="btn btn-default">login</button>
+    </form>
+</ul>
+
+<ul class="nav navbar-nav navbar-right" ng-show="auth.connected">
+    <form class="navbar-form navbar-left" role="search">
+        {{auth.email}} / {{auth.uid}}
+        <button type="submit" ng-click="logout()" class="btn btn-default">logout</button>
+    </form>
+</ul>

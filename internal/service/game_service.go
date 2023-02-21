@@ -2,9 +2,10 @@ package service
 
 import (
 	"context"
-	"sync"
+	"fmt"
 
 	"github.com/gre-ory/amnezic-go/internal/model"
+	"github.com/gre-ory/amnezic-go/internal/store"
 	"go.uber.org/zap"
 )
 
@@ -12,66 +13,80 @@ import (
 // game service
 
 type GameService interface {
-	CreateGame(ctx context.Context, logger *zap.Logger) (*model.Game, error)
-	RetrieveGame(ctx context.Context, logger *zap.Logger, id int64) (*model.Game, error)
-	DeleteGame(ctx context.Context, logger *zap.Logger, id int64) error
+	CreateGame(ctx context.Context, settings model.GameSettings) (*model.Game, error)
+	RetrieveGame(ctx context.Context, id model.GameId) (*model.Game, error)
+	DeleteGame(ctx context.Context, id model.GameId) error
 }
 
-func NewGameService() GameService {
+func NewGameService(logger *zap.Logger, gameStore store.GameStore, musicStore store.MusicStore) GameService {
 	return &gameService{
-		games: make(map[int64]*model.Game),
+		logger:     logger,
+		gameStore:  gameStore,
+		musicStore: musicStore,
 	}
 }
 
 type gameService struct {
-	games     map[int64]*model.Game
-	gamesLock sync.RWMutex
+	logger     *zap.Logger
+	gameStore  store.GameStore
+	musicStore store.MusicStore
 }
 
-func (s *gameService) CreateGame(ctx context.Context, logger *zap.Logger) (*model.Game, error) {
-	s.gamesLock.Lock()
-	defer s.gamesLock.Unlock()
+func (s *gameService) CreateGame(ctx context.Context, settings model.GameSettings) (*model.Game, error) {
 
-	id := int64(len(s.games) + 1)
-	s.games[id] = &model.Game{
-		Id: id,
-		Players: []*model.Player{
-			{
-				Id:     (id * 1000) + 1,
-				Name:   "Player 01",
-				Active: true,
-				Score:  11,
-			},
-			{
-				Id:     (id * 1000) + 2,
-				Name:   "Player 02",
-				Active: false,
-				Score:  12,
-			},
-		},
+	var questions []*model.Question
+	var err error
+
+	questions, err = s.musicStore.SelectRandomQuestions(ctx, settings)
+	if err != nil {
+		return nil, err
 	}
-	return s.games[id], nil
+
+	game := &model.Game{
+		Players:   s.createPlayers(settings.NbPlayer),
+		Questions: questions,
+	}
+
+	game, err = s.gameStore.Create(ctx, game)
+	if err != nil {
+		return nil, err
+	}
+
+	for questionIndex, question := range game.Questions {
+		question.Id = model.NewQuestionId(game.Id, questionIndex+1)
+		for answerIndex, answer := range question.Answers {
+			answer.Id = model.NewAnswerId(question.Id, answerIndex+1)
+		}
+	}
+
+	return game, nil
 }
 
-func (s *gameService) RetrieveGame(ctx context.Context, logger *zap.Logger, id int64) (*model.Game, error) {
-	s.gamesLock.Lock()
-	defer s.gamesLock.Unlock()
+func (s *gameService) createPlayers(nbPlayer int) []*model.Player {
+	players := make([]*model.Player, 0, nbPlayer)
+	for playerNumber := 1; playerNumber <= nbPlayer; playerNumber++ {
+		players = append(players, s.createPlayer(playerNumber))
+	}
+	return players
+}
 
-	game, found := s.games[id]
-	if !found {
-		return nil, model.ErrGameNotFound
+func (s *gameService) createPlayer(playerNumber int) *model.Player {
+	return &model.Player{
+		Id:     model.NewPlayerId(playerNumber),
+		Name:   fmt.Sprintf("Player %02d", playerNumber),
+		Active: true,
+		Score:  0,
+	}
+}
+
+func (s *gameService) RetrieveGame(ctx context.Context, id model.GameId) (*model.Game, error) {
+	game, err := s.gameStore.Retrieve(ctx, id)
+	if err != nil {
+		return nil, err
 	}
 	return game, nil
 }
 
-func (s *gameService) DeleteGame(ctx context.Context, logger *zap.Logger, id int64) error {
-	s.gamesLock.Lock()
-	defer s.gamesLock.Unlock()
-
-	_, found := s.games[id]
-	if !found {
-		return model.ErrGameNotFound
-	}
-	delete(s.games, id)
-	return nil
+func (s *gameService) DeleteGame(ctx context.Context, id model.GameId) error {
+	return s.gameStore.Delete(ctx, id)
 }

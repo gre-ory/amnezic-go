@@ -3,6 +3,7 @@ package model
 // //////////////////////////////////////////////////
 // theme
 
-type Theme interface {
-	Title() string
+type Theme struct {
+	Id    int64
+	Title string
 }

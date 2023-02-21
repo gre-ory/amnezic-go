@@ -1,0 +1,63 @@
+APP_NAME=amnezic
+REPO=amnezic-go
+PACKAGE=github.com/gre-ory/${REPO}
+
+VERSION=$(shell git describe --tags --always --dirty)
+
+ifeq ($(version),)
+	TAG=$VERSION
+else
+	TAG=$(version)
+endif
+
+ifneq ($(verbose),)
+	TEST_ARGS += -v
+endif
+
+ifeq ($(short),true)
+	TEST_ARGS += -short
+endif
+
+PACKAGE_CMD_APP=${PACKAGE}/cmd/${APP_NAME}
+FORCE_REBUILD = -a
+
+LDFLAGS = -X 'main.version=$(VERSION)'
+
+.PHONY: all gen build test get lint
+
+get:
+	go get -u \
+		github.com/tebeka/go2xunit \
+		golang.org/x/lint/golint \
+		github.com/t-yuki/gocover-cobertura \
+		github.com/smartystreets/goconvey/convey \
+		github.com/vektra/mockery/cmd/mockery
+
+gen:
+	@./scripts/generate.sh
+
+build:
+	CGO_ENABLED=0 GOOS=linux go build $(GO_BUILD_FLAGS) -ldflags "${LDFLAGS}" $(FORCE_REBUILD) -o bin/${JOB_NAME} ${PACKAGE_CMD_APP}
+
+run:
+	./bin/${APP_NAME}
+
+install:
+	go install -ldflags "${LDFLAGS}" ${PACKAGE_CMD_APP}
+
+all: get install
+
+rebuild: install gen build
+
+lint:
+	EXCLUDE_REGEX="(cmd)" ./scripts/lint.sh
+
+test:
+	EXCLUDE_REGEX="(cmd)" ./scripts/test.sh $(TEST_ARGS)
+
+cover: test
+	go tool cover -html=coverage.out
+
+pgdump:
+	mkdir -p schema
+	pg_dump --no-owner --schema-only --no-privileges --file=schema/latest.sql
