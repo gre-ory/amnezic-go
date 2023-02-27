@@ -5,21 +5,21 @@ package model
 
 type GameSettings struct {
 	Seed       int64
-	UseLegacy  bool
 	NbQuestion int
 	NbAnswer   int
 	NbPlayer   int
+	Sources    []Source
 }
 
 const (
-	MinNbPlayer = 1
-	MaxNbPlayer = 9
+	MinNbPlayer = 2
+	MaxNbPlayer = 99
 
 	MinNbQuestion = 1
-	MaxNbQuestion = 99
+	MaxNbQuestion = 999
 
 	MinNbAnswer = 2
-	MaxNbAnswer = 9
+	MaxNbAnswer = 99
 )
 
 func (o *GameSettings) Validate() error {
@@ -31,6 +31,9 @@ func (o *GameSettings) Validate() error {
 	}
 	if o.NbAnswer < MinNbAnswer || o.NbAnswer > MaxNbAnswer {
 		return ErrInvalidNbAnswer
+	}
+	if len(o.Sources) == 0 {
+		return ErrMissingSource
 	}
 	return nil
 }

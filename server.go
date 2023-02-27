@@ -8,6 +8,8 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"strings"
+	"sync"
 
 	"github.com/gre-ory/amnezic-go/internal/api"
 	"github.com/gre-ory/amnezic-go/internal/service"
@@ -21,15 +23,6 @@ import (
 
 func main() {
 
-	var gameStore store.GameStore
-	var musicStore store.MusicStore
-	var gameService service.GameService
-	var gameHandler api.Handler
-	var router *httprouter.Router
-	var staticFs, reactFs fs.FS
-	var server http.Server
-	var err error
-
 	ctx := context.Background()
 
 	//
@@ -39,27 +32,122 @@ func main() {
 	env := os.Getenv("ENVIRONMENT")
 	app := os.Getenv("APPLICATION_NAME")
 	version := os.Getenv("APPLICATION_VERSION")
-	address := os.Getenv("ADDRESS")
-
-	fmt.Printf("env: %s, app: %s %s, address: %s \n", env, app, version, address)
 
 	//
 	// logger
 	//
 
-	logger, err := NewLogger()
-	if err != nil {
-		goto exit_on_error
-	}
+	logger := NewLogger()
 	logger = logger.With(zap.String("env", env), zap.String("app", app), zap.String("version", version))
-	logger.Info(fmt.Sprintf("creating %s server...", env))
+	logger.Info("starting app...")
+
+	//
+	// servers
+	//
+
+	var wg sync.WaitGroup
+	wg.Add(2)
+
+	go func() {
+		NewBackendServer(logger).Run(ctx)
+		wg.Done()
+	}()
+
+	go func() {
+		NewFrontendServer(logger).Run(ctx)
+		wg.Done()
+	}()
+
+	wg.Wait()
+
+	logger.Info("app completed")
+	os.Exit(0)
+}
+
+// //////////////////////////////////////////////////
+// frontend server
+
+var frontendRootPath = "www"
+
+//go:embed www
+var frontendFS embed.FS
+
+type FrontendServer struct {
+	logger *zap.Logger
+}
+
+func NewFrontendServer(logger *zap.Logger) *FrontendServer {
+	return &FrontendServer{
+		logger: logger.With(zap.String("server", "frontend")),
+	}
+}
+
+func (s *FrontendServer) Run(ctx context.Context) {
+
+	//
+	// config
+	//
+
+	address := os.Getenv("FRONTEND_ADDRESS")
+
+	//
+	// file server
+	//
+
+	rootFS, err := fs.Sub(frontendFS, frontendRootPath)
+	if err != nil {
+		s.logger.Fatal("failed to serve frontend files", zap.Error(err))
+	}
+	fileServer := http.FileServer(http.FS(rootFS))
+
+	//
+	// server
+	//
+
+	server := http.Server{
+		Addr: address,
+		Handler: WithRequestLogging(s.logger)(
+			fileServer,
+		),
+		BaseContext: func(net.Listener) context.Context {
+			return ctx
+		},
+	}
+
+	s.logger.Info(fmt.Sprintf("starting frontend server on %s", server.Addr))
+	err = server.ListenAndServe()
+	if err != nil {
+		s.logger.Fatal("failed to start backend server", zap.Error(err))
+	}
+}
+
+// //////////////////////////////////////////////////
+// backend server
+
+func NewBackendServer(logger *zap.Logger) *BackendServer {
+	return &BackendServer{
+		logger: logger.With(zap.String("server", "backend")),
+	}
+}
+
+type BackendServer struct {
+	logger *zap.Logger
+}
+
+func (s *BackendServer) Run(ctx context.Context) {
+
+	//
+	// config
+	//
+
+	address := os.Getenv("BACKEND_ADDRESS")
 
 	//
 	// store
 	//
 
-	gameStore = store.NewGameMemoryStore()
-	musicStore = store.NewLegacyMusicStore(store.RootPath_FreeDotFr)
+	gameStore := store.NewGameMemoryStore()
+	musicStore := store.NewLegacyMusicStore(s.logger, store.RootPath_FreeDotFr)
 
 	//
 	// client
@@ -69,84 +157,77 @@ func main() {
 	// service
 	//
 
-	gameService = service.NewGameService(logger, gameStore, musicStore)
+	gameService := service.NewGameService(s.logger, gameStore, musicStore)
 
 	//
 	// api
 	//
 
-	gameHandler = api.NewGamehandler(logger, gameService)
+	gameHandler := api.NewGamehandler(s.logger, gameService)
 
 	//
 	// router
 	//
 
-	router = httprouter.New()
+	router := httprouter.New()
 	gameHandler.RegisterRoutes(router)
-
-	reactFs, err = fs.Sub(react, reactSubPath)
-	if err != nil {
-		goto exit_on_error
-	}
-	router.ServeFiles(reactPath, http.FS(reactFs))
-
-	staticFs, err = fs.Sub(static, staticSubPath)
-	if err != nil {
-		goto exit_on_error
-	}
-	router.ServeFiles(staticPath, http.FS(staticFs))
 
 	//
 	// server
 	//
 
-	server = http.Server{
-		Addr:    address,
-		Handler: WithRequestLogging(logger)(router),
+	server := http.Server{
+		Addr: address,
+		Handler: AllowCORS(s.logger)(
+			WithRequestLogging(s.logger)(
+				router,
+			),
+		),
 		BaseContext: func(net.Listener) context.Context {
 			return ctx
 		},
 	}
 
-	logger.Info(fmt.Sprintf("starting %s server on %s", env, server.Addr))
-	err = server.ListenAndServe()
+	s.logger.Info(fmt.Sprintf("starting backend server on %s", server.Addr))
+	err := server.ListenAndServe()
 	if err != nil {
-		goto exit_on_error
+		s.logger.Fatal("backend server failed", zap.Error(err))
 	}
-
-	logger.Info("server completed")
-	os.Exit(0)
-
-exit_on_error:
-	if logger != nil {
-		logger.Error("server failed!", zap.Error(err))
-	} else if err != nil {
-		fmt.Printf("server failed: %s! \n", err.Error())
-	} else {
-		fmt.Printf("server failed without error! \n")
-	}
-	os.Exit(1)
 }
 
 // //////////////////////////////////////////////////
-// file serve
+// basic dispatcher
 
-var reactPath = "/react/*filepath"
-var reactSubPath = "www/app/amnezic/react/1.0.0"
+type dispatcher struct {
+	extraHandlers  map[string]http.Handler
+	defaultHandler http.Handler
+}
 
-//go:embed www/app/amnezic/react/1.0.0
-var react embed.FS
+func NewDispatcher(defaultHandler http.Handler) *dispatcher {
+	return &dispatcher{
+		extraHandlers:  make(map[string]http.Handler, 0),
+		defaultHandler: defaultHandler,
+	}
+}
 
-var staticPath = "/static/*filepath"
-var staticSubPath = "www/static"
+func (d *dispatcher) Register(path string, handler http.Handler) {
+	d.extraHandlers[path] = handler
+}
 
-//go:embed www/static
-var static embed.FS
+func (d *dispatcher) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	for path, handler := range d.extraHandlers {
+		if strings.HasPrefix(r.URL.Path, path) {
+			handler.ServeHTTP(w, r)
+			return
+		}
+	}
+	d.defaultHandler.ServeHTTP(w, r)
+}
 
 // //////////////////////////////////////////////////
 // logger
 
-func NewLogger() (*zap.Logger, error) {
+func NewLogger() *zap.Logger {
 
 	var zapCfg zap.Config
 	switch os.Getenv("LOG_CONFIG") {
@@ -175,10 +256,11 @@ func NewLogger() (*zap.Logger, error) {
 
 	logger, err := zapCfg.Build()
 	if err != nil {
-		return nil, err
+		fmt.Printf("failed to initialize logger: %s \n", err.Error())
+		os.Exit(1)
 	}
 	logger.Info("logger has been initialized")
-	return logger, nil
+	return logger
 }
 
 // //////////////////////////////////////////////////
@@ -190,6 +272,24 @@ func WithRequestLogging(logger *zap.Logger) func(http.Handler) http.Handler {
 			defer func() {
 				logger.Info(fmt.Sprintf("[DEBUG] %s %s - %s", r.Method, r.URL.Path, r.UserAgent()))
 			}()
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
+// //////////////////////////////////////////////////
+// cors
+
+func AllowCORS(logger *zap.Logger) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			logger.Info(fmt.Sprintf("[DEBUG] AllowCORS %s %s - %s", r.Method, r.URL.Path, r.UserAgent()))
+			logger.Info(fmt.Sprintf("[DEBUG] Origin = %s", r.Header.Get("Origin")))
+			logger.Info(fmt.Sprintf("[DEBUG] Access-Control-Allow-Origin = %s", r.Header.Get("Access-Control-Allow-Origin")))
+			if r.Header.Get("Origin") == "http://localhost:3000" {
+				w.Header().Set("Access-Control-Allow-Origin", r.Header.Get("Origin"))
+				w.Header().Set("Access-Control-Allow-Methods", "*")
+			}
 			next.ServeHTTP(w, r)
 		})
 	}

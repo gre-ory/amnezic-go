@@ -4,9 +4,9 @@ package model
 // constants
 
 const (
-	GameIdStart     = 10000
-	QuestionIdStart = 100
-	AnswerIdStart   = 10
+	GameIdStart     = 10000000
+	QuestionIdStart = 10000
+	AnswerIdStart   = 100
 	PlayerIdStart   = 1
 )
 

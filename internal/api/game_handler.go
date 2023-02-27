@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gre-ory/amnezic-go/internal/model"
@@ -33,17 +34,32 @@ type gameHandler struct {
 // register
 
 func (h *gameHandler) RegisterRoutes(router *httprouter.Router) {
-	router.HandlerFunc(http.MethodPut, "/game/new", h.handleCreateGame)
-	router.HandlerFunc(http.MethodGet, "/game/:game_id", h.handleRetrieveGame)
-	router.HandlerFunc(http.MethodPost, "/game/:game_id", h.handleUpdateGame)
-	router.HandlerFunc(http.MethodDelete, "/game/:game_id", h.handleDeleteGame)
+	router.HandlerFunc(http.MethodPut, "/api/game/new", h.handleCreateGame)
+	router.HandlerFunc(http.MethodGet, "/api/game/:game_id", h.handleRetrieveGame)
+	router.HandlerFunc(http.MethodPost, "/api/game/:game_id", h.handleUpdateGame)
+	router.HandlerFunc(http.MethodDelete, "/api/game/:game_id", h.handleDeleteGame)
 }
 
 // //////////////////////////////////////////////////
 // decode
 
+func (h *gameHandler) extractStringParameter(req *http.Request, name string) string {
+	return strings.Trim(req.FormValue(name), " ")
+}
+
+func (h *gameHandler) extractStringsParameter(req *http.Request, name string) []string {
+	strValue := h.extractStringParameter(req, name)
+	return strings.Split(strValue, ",")
+}
+
+func (h *gameHandler) extractBoolParameter(req *http.Request, name string) bool {
+	strValue := h.extractStringParameter(req, name)
+	strValue = strings.ToLower(strValue)
+	return strValue == "true" || strValue == "1"
+}
+
 func (h *gameHandler) extractIntParameter(req *http.Request, name string) int {
-	strValue := req.FormValue(name)
+	strValue := h.extractStringParameter(req, name)
 	if value, err := strconv.Atoi(strValue); err == nil {
 		return value
 	}
@@ -76,16 +92,28 @@ func (h *gameHandler) handleCreateGame(resp http.ResponseWriter, req *http.Reque
 
 	settings = model.GameSettings{
 		Seed:       time.Now().UnixMilli(),
-		UseLegacy:  true,
 		NbQuestion: h.extractIntParameter(req, "nb_question"),
 		NbAnswer:   h.extractIntParameter(req, "nb_answer"),
 		NbPlayer:   h.extractIntParameter(req, "nb_player"),
+		Sources: util.Filter(
+			util.Convert(
+				h.extractStringsParameter(req, "sources"),
+				model.ToSource,
+			),
+			func(s model.Source) bool { return s != "" },
+		),
 	}
+	// CLEAN
+	if len(settings.Sources) == 0 {
+		h.logger.Warn("[api] missing sources >>> FALLBACK to legacy")
+		settings.Sources = append(settings.Sources, model.Source_Legacy)
+	}
+
 	err = settings.Validate()
 	if err != nil {
 		goto encode_error
 	}
-	h.logger.Info(fmt.Sprintf("[api] create game with %d question(s), %d answer(s) and %d player(s)", settings.NbQuestion, settings.NbAnswer, settings.NbPlayer))
+	h.logger.Info(fmt.Sprintf("[api] create game with %d question(s), %d answer(s), %d player(s) and %d sources: %#v", settings.NbQuestion, settings.NbAnswer, settings.NbPlayer, len(settings.Sources), settings.Sources))
 
 	//
 	// execute
@@ -276,9 +304,20 @@ func (h *gameHandler) toJsonGame(game *model.Game) *JsonGameResponse {
 		Success: true,
 		Game: &JsonGame{
 			Id:        int64(game.Id),
+			Settings:  h.toJsonGameSettings(game.Settings),
 			Players:   util.Convert(game.Players, h.toJsonPlayer),
 			Questions: util.Convert(game.Questions, h.toJsonQuestion),
 		},
+	}
+}
+
+func (h *gameHandler) toJsonGameSettings(settings *model.GameSettings) *JsonGameSettings {
+	return &JsonGameSettings{
+		Seed:       settings.Seed,
+		NbQuestion: settings.NbQuestion,
+		NbAnswer:   settings.NbAnswer,
+		NbPlayer:   settings.NbPlayer,
+		Sources:    util.Convert(settings.Sources, model.Source.String),
 	}
 }
 
@@ -353,10 +392,10 @@ func (h *gameHandler) toJsonGenre(genre *model.Genre) *JsonGenre {
 
 func (h *gameHandler) toJsonAnswer(answer *model.Answer) JsonAnswer {
 	return JsonAnswer{
-		Id:    int64(answer.Id),
-		Text:  answer.Text,
-		Hint:  answer.Hint,
-		Valid: answer.Correct,
+		Id:      int64(answer.Id),
+		Text:    answer.Text,
+		Hint:    answer.Hint,
+		Correct: answer.Correct,
 	}
 }
 
@@ -367,9 +406,18 @@ type JsonGameResponse struct {
 }
 
 type JsonGame struct {
-	Id        int64           `json:"id,omitempty"`
-	Players   []*JsonPlayer   `json:"players,omitempty"`
-	Questions []*JsonQuestion `json:"questions,omitempty"`
+	Id        int64             `json:"id,omitempty"`
+	Settings  *JsonGameSettings `json:"settings,omitempty"`
+	Players   []*JsonPlayer     `json:"players,omitempty"`
+	Questions []*JsonQuestion   `json:"questions,omitempty"`
+}
+
+type JsonGameSettings struct {
+	Seed       int64    `json:"seed,omitempty"`
+	NbQuestion int      `json:"nbQuestion,omitempty"`
+	NbAnswer   int      `json:"nbAnswer,omitempty"`
+	NbPlayer   int      `json:"nbPlayer,omitempty"`
+	Sources    []string `json:"sources,omitempty"`
 }
 
 type JsonPlayer struct {
@@ -419,10 +467,10 @@ type JsonGenre struct {
 }
 
 type JsonAnswer struct {
-	Id    int64  `json:"id"`
-	Text  string `json:"text"`
-	Hint  string `json:"hint,omitempty"`
-	Valid bool   `json:"valid,omitempty"`
+	Id      int64  `json:"id"`
+	Text    string `json:"text"`
+	Hint    string `json:"hint,omitempty"`
+	Correct bool   `json:"correct,omitempty"`
 }
 
 // //////////////////////////////////////////////////

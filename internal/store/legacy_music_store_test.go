@@ -7,6 +7,7 @@ import (
 	"github.com/gre-ory/amnezic-go/internal/model"
 	"github.com/gre-ory/amnezic-go/internal/store"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 )
 
 func TestLegacyMusicStore(t *testing.T) {
@@ -16,13 +17,13 @@ func TestLegacyMusicStore(t *testing.T) {
 
 	settings := model.GameSettings{
 		Seed:       42,
-		UseLegacy:  true,
 		NbQuestion: 2,
 		NbAnswer:   3,
 		NbPlayer:   4,
 	}
+	logger := zap.L()
 
-	store := store.NewLegacyMusicStore(rootPath)
+	store := store.NewLegacyMusicStore(logger, rootPath)
 	gotQuestions, gotErr := store.SelectRandomQuestions(ctx, settings)
 
 	require.NoError(t, gotErr)
@@ -80,4 +81,52 @@ func TestLegacyMusicStore(t *testing.T) {
 			},
 		},
 	}, gotQuestions)
+}
+
+func TestReproduce(t *testing.T) {
+	ctx := context.Background()
+
+	rootPath := "http://root"
+
+	settings := model.GameSettings{
+		Seed:       1678290075142,
+		NbQuestion: 5,
+		NbAnswer:   3,
+		NbPlayer:   4,
+		Sources:    []model.Source{model.Source_Legacy},
+	}
+	config := zap.NewDevelopmentConfig()
+	config.Development = false
+	logger, _ := config.Build()
+
+	store := store.NewLegacyMusicStore(logger, rootPath)
+	gotQuestions, gotErr := store.SelectRandomQuestions(ctx, settings)
+
+	require.NoError(t, gotErr)
+	require.Equal(t, &model.Question{
+		Id: 2017,
+		Theme: model.Theme{
+			Title: "Pop",
+		},
+		Music: model.Music{
+			Id:     2017,
+			Name:   "Purple rain",
+			Mp3Url: "http://root/6496_Prince_Purplerain_1984.mp3",
+		},
+		Answers: []*model.Answer{
+			{
+				Text: "Green Day",
+				Hint: "Holiday",
+			},
+			{
+				Text:    "Prince",
+				Hint:    "Purple rain",
+				Correct: true,
+			},
+			{
+				Text: "Garbage",
+				Hint: "I think I´m paranoid",
+			},
+		},
+	}, gotQuestions[0])
 }

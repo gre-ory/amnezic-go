@@ -13,4 +13,5 @@ var (
 	ErrInvalidNbPlayer   = fmt.Errorf("invalid number of player")
 	ErrInvalidNbQuestion = fmt.Errorf("invalid number of question")
 	ErrInvalidNbAnswer   = fmt.Errorf("invalid number of answer")
+	ErrMissingSource     = fmt.Errorf("missing source")
 )

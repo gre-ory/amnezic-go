@@ -43,6 +43,7 @@ func (s *gameService) CreateGame(ctx context.Context, settings model.GameSetting
 	}
 
 	game := &model.Game{
+		Settings:  &settings,
 		Players:   s.createPlayers(settings.NbPlayer),
 		Questions: questions,
 	}
