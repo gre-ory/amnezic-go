@@ -14,6 +14,7 @@ import (
 	"github.com/gre-ory/amnezic-go/internal/api"
 	"github.com/gre-ory/amnezic-go/internal/service"
 	"github.com/gre-ory/amnezic-go/internal/store"
+	"github.com/gre-ory/amnezic-go/internal/util"
 	"github.com/julienschmidt/httprouter"
 	"go.uber.org/zap"
 )
@@ -280,15 +281,22 @@ func WithRequestLogging(logger *zap.Logger) func(http.Handler) http.Handler {
 // //////////////////////////////////////////////////
 // cors
 
+var whitelistOrigins []string = []string{
+	"http://localhost:3000",
+	"http://localhost:9090",
+}
+
 func AllowCORS(logger *zap.Logger) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			logger.Info(fmt.Sprintf("[DEBUG] AllowCORS %s %s - %s", r.Method, r.URL.Path, r.UserAgent()))
-			logger.Info(fmt.Sprintf("[DEBUG] Origin = %s", r.Header.Get("Origin")))
-			logger.Info(fmt.Sprintf("[DEBUG] Access-Control-Allow-Origin = %s", r.Header.Get("Access-Control-Allow-Origin")))
-			if r.Header.Get("Origin") == "http://localhost:3000" {
-				w.Header().Set("Access-Control-Allow-Origin", r.Header.Get("Origin"))
+			origin := r.Header.Get("Origin")
+			allowed := util.Contains(whitelistOrigins, origin)
+			if allowed {
+				logger.Info(fmt.Sprintf("[COR] OK - Origin: %s", origin))
+				w.Header().Set("Access-Control-Allow-Origin", origin)
 				w.Header().Set("Access-Control-Allow-Methods", "*")
+			} else {
+				logger.Warn(fmt.Sprintf("[COR] BLOCKED - Origin: %s", origin))
 			}
 			next.ServeHTTP(w, r)
 		})

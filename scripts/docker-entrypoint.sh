@@ -8,7 +8,7 @@ if [ "$1" = "amnezic" ]; then
 
 	# trigger export job
 	echo "[docker] amnezic ${AMNEZIC_ARG}"
-	exec export-job \
+	exec server \
 		--http-time-out-ms="${AMNEZIC_HTTP_TIME_OUT_MS}" \
 		-- \
 		"${AMNEZIC_ARG}"
