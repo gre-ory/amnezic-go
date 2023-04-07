@@ -18,7 +18,7 @@ type GameService interface {
 	DeleteGame(ctx context.Context, id model.GameId) error
 }
 
-func NewGameService(logger *zap.Logger, gameStore store.GameStore, musicStore store.MusicStore) GameService {
+func NewGameService(logger *zap.Logger, gameStore store.GameStore, musicStore store.GameQuestionStore) GameService {
 	return &gameService{
 		logger:     logger,
 		gameStore:  gameStore,
@@ -29,12 +29,12 @@ func NewGameService(logger *zap.Logger, gameStore store.GameStore, musicStore st
 type gameService struct {
 	logger     *zap.Logger
 	gameStore  store.GameStore
-	musicStore store.MusicStore
+	musicStore store.GameQuestionStore
 }
 
 func (s *gameService) CreateGame(ctx context.Context, settings model.GameSettings) (*model.Game, error) {
 
-	var questions []*model.Question
+	var questions []*model.GameQuestion
 	var err error
 
 	questions, err = s.musicStore.SelectRandomQuestions(ctx, settings)
@@ -54,26 +54,26 @@ func (s *gameService) CreateGame(ctx context.Context, settings model.GameSetting
 	}
 
 	for questionIndex, question := range game.Questions {
-		question.Id = model.NewQuestionId(game.Id, questionIndex+1)
+		question.Id = model.NewGameQuestionId(game.Id, questionIndex+1)
 		for answerIndex, answer := range question.Answers {
-			answer.Id = model.NewAnswerId(question.Id, answerIndex+1)
+			answer.Id = model.NewGameAnswerId(question.Id, answerIndex+1)
 		}
 	}
 
 	return game, nil
 }
 
-func (s *gameService) createPlayers(nbPlayer int) []*model.Player {
-	players := make([]*model.Player, 0, nbPlayer)
+func (s *gameService) createPlayers(nbPlayer int) []*model.GamePlayer {
+	players := make([]*model.GamePlayer, 0, nbPlayer)
 	for playerNumber := 1; playerNumber <= nbPlayer; playerNumber++ {
 		players = append(players, s.createPlayer(playerNumber))
 	}
 	return players
 }
 
-func (s *gameService) createPlayer(playerNumber int) *model.Player {
-	return &model.Player{
-		Id:     model.NewPlayerId(playerNumber),
+func (s *gameService) createPlayer(playerNumber int) *model.GamePlayer {
+	return &model.GamePlayer{
+		Id:     model.NewGamePlayerId(playerNumber),
 		Name:   fmt.Sprintf("Player %02d", playerNumber),
 		Active: true,
 		Score:  0,

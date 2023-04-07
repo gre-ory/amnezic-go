@@ -22,7 +22,7 @@ const (
 	RootPath_FreeDotFr     = "http://gregory.valigiani.free.fr/amnezic/"
 )
 
-func NewLegacyMusicStore(logger *zap.Logger, rootPath string) MusicStore {
+func NewLegacyMusicStore(logger *zap.Logger, rootPath string) GameQuestionStore {
 	store := &legacyMusicStore{
 		logger:           logger,
 		rootPath:         strings.TrimRight(rootPath, "/"),
@@ -45,7 +45,7 @@ type legacyMusicStore struct {
 	genres           map[int64]*JsonLegacyGenre
 }
 
-func (s *legacyMusicStore) SelectRandomQuestions(ctx context.Context, settings model.GameSettings) ([]*model.Question, error) {
+func (s *legacyMusicStore) SelectRandomQuestions(ctx context.Context, settings model.GameSettings) ([]*model.GameQuestion, error) {
 
 	//
 	// validate
@@ -86,7 +86,7 @@ func (s *legacyMusicStore) SelectRandomQuestions(ctx context.Context, settings m
 	// building questions
 	//
 
-	questions := make([]*model.Question, 0, settings.NbQuestion)
+	questions := make([]*model.GameQuestion, 0, settings.NbQuestion)
 	for _, mediaId := range mediaIds {
 		media := s.media[mediaId]
 		genre := s.genres[media.GenreId]
@@ -96,23 +96,23 @@ func (s *legacyMusicStore) SelectRandomQuestions(ctx context.Context, settings m
 	return questions, nil
 }
 
-func (s *legacyMusicStore) toQuestion(ctx context.Context, genre *JsonLegacyGenre, media *JsonLegacyMedia, nbAnswer int) *model.Question {
-	return &model.Question{
+func (s *legacyMusicStore) toQuestion(ctx context.Context, genre *JsonLegacyGenre, media *JsonLegacyMedia, nbAnswer int) *model.GameQuestion {
+	return &model.GameQuestion{
 		Theme:   s.toTheme(ctx, genre),
 		Music:   s.toMusic(ctx, media),
 		Answers: s.toAnswers(ctx, genre, media, nbAnswer),
 	}
 }
 
-func (s *legacyMusicStore) toTheme(ctx context.Context, genre *JsonLegacyGenre) model.Theme {
-	return model.Theme{
+func (s *legacyMusicStore) toTheme(ctx context.Context, genre *JsonLegacyGenre) *model.GameTheme {
+	return &model.GameTheme{
 		Title: genre.Genre,
 	}
 }
 
-func (s *legacyMusicStore) toMusic(ctx context.Context, media *JsonLegacyMedia) model.Music {
-	return model.Music{
-		Id:     media.Id,
+func (s *legacyMusicStore) toMusic(ctx context.Context, media *JsonLegacyMedia) *model.Music {
+	return &model.Music{
+		Id:     model.MusicId(media.Id),
 		Name:   media.Title,
 		Mp3Url: s.toMp3Url(ctx, media),
 		Artist: s.toArtist(ctx, media.Artist),
@@ -126,16 +126,16 @@ func (s *legacyMusicStore) toMp3Url(ctx context.Context, media *JsonLegacyMedia)
 	return media.MusicFileName
 }
 
-func (s *legacyMusicStore) toArtist(ctx context.Context, artist *JsonLegacyArtist) *model.Artist {
+func (s *legacyMusicStore) toArtist(ctx context.Context, artist *JsonLegacyArtist) *model.MusicArtist {
 	if artist == nil {
 		return nil
 	}
-	return &model.Artist{
+	return &model.MusicArtist{
 		Name: artist.Name,
 	}
 }
 
-func (s *legacyMusicStore) toAnswers(ctx context.Context, genre *JsonLegacyGenre, media *JsonLegacyMedia, nbAnswer int) []*model.Answer {
+func (s *legacyMusicStore) toAnswers(ctx context.Context, genre *JsonLegacyGenre, media *JsonLegacyMedia, nbAnswer int) []*model.GameAnswer {
 
 	others := util.Filter(genre.Media, func(other *JsonLegacyMedia) bool { return other.Id != media.Id })
 
@@ -145,7 +145,7 @@ func (s *legacyMusicStore) toAnswers(ctx context.Context, genre *JsonLegacyGenre
 		others = others[:nbAnswer-1]
 	}
 
-	answers := util.Convert(others, func(other *JsonLegacyMedia) *model.Answer { return s.toAnswer(ctx, other, false) })
+	answers := util.Convert(others, func(other *JsonLegacyMedia) *model.GameAnswer { return s.toAnswer(ctx, other, false) })
 	answers = append(answers, s.toAnswer(ctx, media, true))
 
 	util.Shuffle(answers)
@@ -153,14 +153,14 @@ func (s *legacyMusicStore) toAnswers(ctx context.Context, genre *JsonLegacyGenre
 	return answers
 }
 
-func (s *legacyMusicStore) toAnswer(ctx context.Context, media *JsonLegacyMedia, correct bool) *model.Answer {
+func (s *legacyMusicStore) toAnswer(ctx context.Context, media *JsonLegacyMedia, correct bool) *model.GameAnswer {
 	if media.Artist == nil {
-		return &model.Answer{
+		return &model.GameAnswer{
 			Text:    media.Title,
 			Correct: correct,
 		}
 	}
-	return &model.Answer{
+	return &model.GameAnswer{
 		Text:    media.Artist.Name,
 		Hint:    media.Title,
 		Correct: correct,

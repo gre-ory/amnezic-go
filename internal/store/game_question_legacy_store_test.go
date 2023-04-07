@@ -27,18 +27,18 @@ func TestLegacyMusicStore(t *testing.T) {
 	gotQuestions, gotErr := store.SelectRandomQuestions(ctx, settings)
 
 	require.NoError(t, gotErr)
-	require.Equal(t, []*model.Question{
+	require.Equal(t, []*model.GameQuestion{
 		{
 			Id: 2017,
-			Theme: model.Theme{
+			Theme: &model.GameTheme{
 				Title: "Pop",
 			},
-			Music: model.Music{
+			Music: &model.Music{
 				Id:     2017,
 				Name:   "Purple rain",
 				Mp3Url: "http://root/6496_Prince_Purplerain_1984.mp3",
 			},
-			Answers: []*model.Answer{
+			Answers: []*model.GameAnswer{
 				{
 					Text: "Green Day",
 					Hint: "Holiday",
@@ -56,15 +56,15 @@ func TestLegacyMusicStore(t *testing.T) {
 		},
 		{
 			Id: 5001,
-			Theme: model.Theme{
+			Theme: &model.GameTheme{
 				Title: "Nostalgie",
 			},
-			Music: model.Music{
+			Music: &model.Music{
 				Id:     5001,
 				Name:   "Dejeuner en paix",
 				Mp3Url: "http://root/Rem2-08-01.mp3",
 			},
-			Answers: []*model.Answer{
+			Answers: []*model.GameAnswer{
 				{
 					Text: "Claude francois",
 					Hint: "Cette annee la",
@@ -103,17 +103,17 @@ func TestReproduce(t *testing.T) {
 	gotQuestions, gotErr := store.SelectRandomQuestions(ctx, settings)
 
 	require.NoError(t, gotErr)
-	require.Equal(t, &model.Question{
+	require.Equal(t, &model.GameQuestion{
 		Id: 2017,
-		Theme: model.Theme{
+		Theme: &model.GameTheme{
 			Title: "Pop",
 		},
-		Music: model.Music{
+		Music: &model.Music{
 			Id:     2017,
 			Name:   "Purple rain",
 			Mp3Url: "http://root/6496_Prince_Purplerain_1984.mp3",
 		},
-		Answers: []*model.Answer{
+		Answers: []*model.GameAnswer{
 			{
 				Text: "Green Day",
 				Hint: "Holiday",
