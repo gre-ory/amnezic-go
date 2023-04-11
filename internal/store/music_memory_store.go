@@ -21,12 +21,16 @@ type musicMemoryStore struct {
 	musicsLock sync.RWMutex
 }
 
+var (
+	NextMusicId = 0
+)
+
 func (s *musicMemoryStore) Create(ctx context.Context, music *model.Music) (*model.Music, error) {
 	s.musicsLock.Lock()
 	defer s.musicsLock.Unlock()
 
-	musicNumber := len(s.musics) + 1
-	music.Id = model.MusicId(musicNumber)
+	NextMusicId++
+	music.Id = model.MusicId(NextMusicId)
 	s.musics[music.Id] = music.Copy()
 	return s.musics[music.Id].Copy(), nil
 }
@@ -80,4 +84,28 @@ func (s *musicMemoryStore) Delete(ctx context.Context, id model.MusicId) error {
 	}
 	delete(s.musics, id)
 	return nil
+}
+
+func (s *musicMemoryStore) IsAlbumUsed(ctx context.Context, albumId model.MusicAlbumId) (bool, error) {
+	s.musicsLock.Lock()
+	defer s.musicsLock.Unlock()
+
+	for _, music := range s.musics {
+		if music.AlbumId == albumId {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+func (s *musicMemoryStore) IsArtistUsed(ctx context.Context, artistId model.MusicArtistId) (bool, error) {
+	s.musicsLock.Lock()
+	defer s.musicsLock.Unlock()
+
+	for _, music := range s.musics {
+		if music.ArtistId == artistId {
+			return true, nil
+		}
+	}
+	return false, nil
 }

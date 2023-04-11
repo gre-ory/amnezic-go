@@ -15,4 +15,6 @@ type MusicStore interface {
 	RetrieveByDeezerId(ctx context.Context, deezerId model.DeezerMusicId) (*model.Music, error)
 	Update(ctx context.Context, music *model.Music) (*model.Music, error)
 	Delete(ctx context.Context, id model.MusicId) error
+	IsAlbumUsed(ctx context.Context, albumId model.MusicAlbumId) (bool, error)
+	IsArtistUsed(ctx context.Context, artistId model.MusicArtistId) (bool, error)
 }

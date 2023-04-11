@@ -21,14 +21,18 @@ type themeQuestionMemoryStore struct {
 	themeQuestionsLock sync.RWMutex
 }
 
+var (
+	NextThemeQuestionId = 0
+)
+
 func (s *themeQuestionMemoryStore) Create(ctx context.Context, themeQuestion *model.ThemeQuestion) (*model.ThemeQuestion, error) {
 	s.themeQuestionsLock.Lock()
 	defer s.themeQuestionsLock.Unlock()
 
-	themeQuestionNumber := len(s.themeQuestions) + 1
-	themeQuestion.Id = model.ThemeQuestionId(themeQuestionNumber)
-	s.themeQuestions[themeQuestion.Id] = themeQuestion
-	return s.themeQuestions[themeQuestion.Id], nil
+	NextThemeQuestionId++
+	themeQuestion.Id = model.ThemeQuestionId(NextThemeQuestionId)
+	s.themeQuestions[themeQuestion.Id] = themeQuestion.Copy()
+	return s.themeQuestions[themeQuestion.Id].Copy(), nil
 }
 
 func (s *themeQuestionMemoryStore) Retrieve(ctx context.Context, id model.ThemeQuestionId) (*model.ThemeQuestion, error) {
@@ -39,7 +43,7 @@ func (s *themeQuestionMemoryStore) Retrieve(ctx context.Context, id model.ThemeQ
 	if !found {
 		return nil, model.ErrThemeQuestionNotFound
 	}
-	return themeQuestion, nil
+	return themeQuestion.Copy(), nil
 }
 
 func (s *themeQuestionMemoryStore) Update(ctx context.Context, themeQuestion *model.ThemeQuestion) (*model.ThemeQuestion, error) {
@@ -50,8 +54,8 @@ func (s *themeQuestionMemoryStore) Update(ctx context.Context, themeQuestion *mo
 	if !found {
 		return nil, model.ErrThemeQuestionNotFound
 	}
-	s.themeQuestions[themeQuestion.Id] = themeQuestion
-	return s.themeQuestions[themeQuestion.Id], nil
+	s.themeQuestions[themeQuestion.Id] = themeQuestion.Copy()
+	return s.themeQuestions[themeQuestion.Id].Copy(), nil
 }
 
 func (s *themeQuestionMemoryStore) Delete(ctx context.Context, filter *model.ThemeQuestionFilter) error {

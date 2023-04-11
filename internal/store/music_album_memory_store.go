@@ -21,12 +21,16 @@ type musicAlbumMemoryStore struct {
 	musicAlbumsLock sync.RWMutex
 }
 
+var (
+	NextMusicAlbumId = 0
+)
+
 func (s *musicAlbumMemoryStore) Create(ctx context.Context, musicAlbum *model.MusicAlbum) (*model.MusicAlbum, error) {
 	s.musicAlbumsLock.Lock()
 	defer s.musicAlbumsLock.Unlock()
 
-	musicAlbumNumber := len(s.musicAlbums) + 1
-	musicAlbum.Id = model.MusicAlbumId(musicAlbumNumber)
+	NextMusicAlbumId++
+	musicAlbum.Id = model.MusicAlbumId(NextMusicAlbumId)
 	s.musicAlbums[musicAlbum.Id] = musicAlbum.Copy()
 	return s.musicAlbums[musicAlbum.Id].Copy(), nil
 }

@@ -21,14 +21,18 @@ type themeMemoryStore struct {
 	themesLock sync.RWMutex
 }
 
+var (
+	NextThemeId = 0
+)
+
 func (s *themeMemoryStore) Create(ctx context.Context, theme *model.Theme) (*model.Theme, error) {
 	s.themesLock.Lock()
 	defer s.themesLock.Unlock()
 
-	themeNumber := len(s.themes) + 1
-	theme.Id = model.ThemeId(themeNumber)
-	s.themes[theme.Id] = theme
-	return s.themes[theme.Id], nil
+	NextThemeId++
+	theme.Id = model.ThemeId(NextThemeId)
+	s.themes[theme.Id] = theme.Copy()
+	return s.themes[theme.Id].Copy(), nil
 }
 
 func (s *themeMemoryStore) Retrieve(ctx context.Context, id model.ThemeId) (*model.Theme, error) {
@@ -39,7 +43,7 @@ func (s *themeMemoryStore) Retrieve(ctx context.Context, id model.ThemeId) (*mod
 	if !found {
 		return nil, model.ErrThemeNotFound
 	}
-	return theme, nil
+	return theme.Copy(), nil
 }
 
 func (s *themeMemoryStore) Update(ctx context.Context, theme *model.Theme) (*model.Theme, error) {
@@ -50,8 +54,8 @@ func (s *themeMemoryStore) Update(ctx context.Context, theme *model.Theme) (*mod
 	if !found {
 		return nil, model.ErrThemeNotFound
 	}
-	s.themes[theme.Id] = theme
-	return s.themes[theme.Id], nil
+	s.themes[theme.Id] = theme.Copy()
+	return s.themes[theme.Id].Copy(), nil
 }
 
 func (s *themeMemoryStore) Delete(ctx context.Context, filter *model.ThemeFilter) error {

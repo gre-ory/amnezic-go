@@ -21,12 +21,16 @@ type gameMemoryStore struct {
 	gamesLock sync.RWMutex
 }
 
+var (
+	NextGameId = 0
+)
+
 func (s *gameMemoryStore) Create(ctx context.Context, game *model.Game) (*model.Game, error) {
 	s.gamesLock.Lock()
 	defer s.gamesLock.Unlock()
 
-	gameNumber := len(s.games) + 1
-	game.Id = model.NewGameId(gameNumber)
+	NextGameId++
+	game.Id = model.NewGameId(NextGameId)
 	game.Version = 1
 	s.games[game.Id] = game
 	return s.games[game.Id], nil

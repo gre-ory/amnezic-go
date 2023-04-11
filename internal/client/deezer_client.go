@@ -34,9 +34,14 @@ type deezerClient struct {
 
 func (c *deezerClient) Search(query string, limit int) ([]*model.Music, error) {
 
+	c.logger.Info(fmt.Sprintf("[client] query: %s, limit: %d", query, limit))
+
 	url := fmt.Sprintf("https://api.deezer.com/search?q=%s&limit=%d", url.QueryEscape(query), limit)
+	c.logger.Info(fmt.Sprintf("[client] url: %s", url))
+
 	resp, err := http.Get(url)
 	if err != nil {
+		c.logger.Info(fmt.Sprintf("[client] >>> error: %s", err.Error()), zap.Error(err))
 		return nil, err
 	}
 	defer resp.Body.Close()
@@ -44,8 +49,11 @@ func (c *deezerClient) Search(query string, limit int) ([]*model.Music, error) {
 	var jsonSearch JsonDeezerSearch
 	err = json.NewDecoder(resp.Body).Decode(&jsonSearch)
 	if err != nil {
+		c.logger.Info(fmt.Sprintf("[client] >>> error: %s", err.Error()), zap.Error(err))
 		return nil, err
 	}
+
+	c.logger.Info(fmt.Sprintf("[client] tracks: %d", len(jsonSearch.Tracks)))
 
 	return util.Convert(jsonSearch.Tracks, toMusic), nil
 }

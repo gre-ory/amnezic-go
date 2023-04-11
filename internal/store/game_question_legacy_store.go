@@ -22,8 +22,8 @@ const (
 	RootPath_FreeDotFr     = "http://gregory.valigiani.free.fr/amnezic/"
 )
 
-func NewLegacyMusicStore(logger *zap.Logger, rootPath string) GameQuestionStore {
-	store := &legacyMusicStore{
+func NewGameQuestionLegacyStore(logger *zap.Logger, rootPath string) GameQuestionStore {
+	store := &gameQuestionLegacyMusicStore{
 		logger:           logger,
 		rootPath:         strings.TrimRight(rootPath, "/"),
 		mediaIdsBySource: make(map[model.Source][]int64, 10),
@@ -37,7 +37,7 @@ func NewLegacyMusicStore(logger *zap.Logger, rootPath string) GameQuestionStore 
 // //////////////////////////////////////////////////
 // implementation
 
-type legacyMusicStore struct {
+type gameQuestionLegacyMusicStore struct {
 	logger           *zap.Logger
 	rootPath         string
 	mediaIdsBySource map[model.Source][]int64
@@ -45,7 +45,7 @@ type legacyMusicStore struct {
 	genres           map[int64]*JsonLegacyGenre
 }
 
-func (s *legacyMusicStore) SelectRandomQuestions(ctx context.Context, settings model.GameSettings) ([]*model.GameQuestion, error) {
+func (s *gameQuestionLegacyMusicStore) SelectRandomQuestions(ctx context.Context, settings model.GameSettings) ([]*model.GameQuestion, error) {
 
 	//
 	// validate
@@ -96,7 +96,7 @@ func (s *legacyMusicStore) SelectRandomQuestions(ctx context.Context, settings m
 	return questions, nil
 }
 
-func (s *legacyMusicStore) toQuestion(ctx context.Context, genre *JsonLegacyGenre, media *JsonLegacyMedia, nbAnswer int) *model.GameQuestion {
+func (s *gameQuestionLegacyMusicStore) toQuestion(ctx context.Context, genre *JsonLegacyGenre, media *JsonLegacyMedia, nbAnswer int) *model.GameQuestion {
 	return &model.GameQuestion{
 		Theme:   s.toTheme(ctx, genre),
 		Music:   s.toMusic(ctx, media),
@@ -104,13 +104,13 @@ func (s *legacyMusicStore) toQuestion(ctx context.Context, genre *JsonLegacyGenr
 	}
 }
 
-func (s *legacyMusicStore) toTheme(ctx context.Context, genre *JsonLegacyGenre) *model.GameTheme {
+func (s *gameQuestionLegacyMusicStore) toTheme(ctx context.Context, genre *JsonLegacyGenre) *model.GameTheme {
 	return &model.GameTheme{
 		Title: genre.Genre,
 	}
 }
 
-func (s *legacyMusicStore) toMusic(ctx context.Context, media *JsonLegacyMedia) *model.Music {
+func (s *gameQuestionLegacyMusicStore) toMusic(ctx context.Context, media *JsonLegacyMedia) *model.Music {
 	return &model.Music{
 		Id:     model.MusicId(media.Id),
 		Name:   media.Title,
@@ -119,14 +119,14 @@ func (s *legacyMusicStore) toMusic(ctx context.Context, media *JsonLegacyMedia) 
 	}
 }
 
-func (s *legacyMusicStore) toMp3Url(ctx context.Context, media *JsonLegacyMedia) string {
+func (s *gameQuestionLegacyMusicStore) toMp3Url(ctx context.Context, media *JsonLegacyMedia) string {
 	if s.rootPath != "" {
 		return fmt.Sprintf("%s/%s", s.rootPath, media.MusicFileName)
 	}
 	return media.MusicFileName
 }
 
-func (s *legacyMusicStore) toArtist(ctx context.Context, artist *JsonLegacyArtist) *model.MusicArtist {
+func (s *gameQuestionLegacyMusicStore) toArtist(ctx context.Context, artist *JsonLegacyArtist) *model.MusicArtist {
 	if artist == nil {
 		return nil
 	}
@@ -135,7 +135,7 @@ func (s *legacyMusicStore) toArtist(ctx context.Context, artist *JsonLegacyArtis
 	}
 }
 
-func (s *legacyMusicStore) toAnswers(ctx context.Context, genre *JsonLegacyGenre, media *JsonLegacyMedia, nbAnswer int) []*model.GameAnswer {
+func (s *gameQuestionLegacyMusicStore) toAnswers(ctx context.Context, genre *JsonLegacyGenre, media *JsonLegacyMedia, nbAnswer int) []*model.GameAnswer {
 
 	others := util.Filter(genre.Media, func(other *JsonLegacyMedia) bool { return other.Id != media.Id })
 
@@ -153,7 +153,7 @@ func (s *legacyMusicStore) toAnswers(ctx context.Context, genre *JsonLegacyGenre
 	return answers
 }
 
-func (s *legacyMusicStore) toAnswer(ctx context.Context, media *JsonLegacyMedia, correct bool) *model.GameAnswer {
+func (s *gameQuestionLegacyMusicStore) toAnswer(ctx context.Context, media *JsonLegacyMedia, correct bool) *model.GameAnswer {
 	if media.Artist == nil {
 		return &model.GameAnswer{
 			Text:    media.Title,
@@ -179,7 +179,7 @@ var genreJsonBytes []byte
 //go:embed resources/legacy.json
 var legacyJsonBytes []byte
 
-func (s *legacyMusicStore) Load() *legacyMusicStore {
+func (s *gameQuestionLegacyMusicStore) Load() *gameQuestionLegacyMusicStore {
 
 	s.LoadSource(model.Source_Legacy, legacyJsonBytes)
 	s.LoadSource(model.Source_Decade, decadeJsonBytes)
@@ -188,7 +188,7 @@ func (s *legacyMusicStore) Load() *legacyMusicStore {
 	return s
 }
 
-func (s *legacyMusicStore) LoadSource(source model.Source, embedBytes []byte) *legacyMusicStore {
+func (s *gameQuestionLegacyMusicStore) LoadSource(source model.Source, embedBytes []byte) *gameQuestionLegacyMusicStore {
 
 	jsonLegacy := JsonLegacy{}
 	if err := json.Unmarshal(embedBytes, &jsonLegacy); err != nil {

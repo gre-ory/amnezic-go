@@ -1594,6 +1594,42 @@ func (s *musicMemoryStore) Delete(ctx context.Context, id model.MusicId) error <
         <span class="cov0" title="0">delete(s.musics, id)
         return nil</span>
 }
+
+func (s *musicMemoryStore) IsAlbumUsed(ctx context.Context, albumId model.MusicAlbumId) (bool, error) <span class="cov0" title="0">{
+        s.musicsLock.Lock()
+        defer s.musicsLock.Unlock()
+
+        for _, music := range s.musics </span><span class="cov0" title="0">{
+                if music.AlbumId == albumId </span><span class="cov0" title="0">{
+                        return true, nil
+                }</span>
+        }
+        <span class="cov0" title="0">return false, nil</span>
+}
+
+func (s *musicMemoryStore) IsArtistUsed(ctx context.Context, artistId model.MusicArtistId) (bool, error) <span class="cov0" title="0">{
+        s.musicsLock.Lock()
+        defer s.musicsLock.Unlock()
+
+        for _, music := range s.musics </span><span class="cov0" title="0">{
+                if music.ArtistId == artistId </span><span class="cov0" title="0">{
+                        return true, nil
+                }</span>
+        }
+        <span class="cov0" title="0">return false, nil</span>
+}
+
+func (s *musicMemoryStore) IsGenreUsed(ctx context.Context, genreId model.MusicGenreId) (bool, error) <span class="cov0" title="0">{
+        s.musicsLock.Lock()
+        defer s.musicsLock.Unlock()
+
+        for _, music := range s.musics </span><span class="cov0" title="0">{
+                if music.GenreId == genreId </span><span class="cov0" title="0">{
+                        return true, nil
+                }</span>
+        }
+        <span class="cov0" title="0">return false, nil</span>
+}
 </pre>
 		
 		<pre class="file" id="file22" style="display: none">package store

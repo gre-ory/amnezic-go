@@ -23,7 +23,7 @@ func TestLegacyMusicStore(t *testing.T) {
 	}
 	logger := zap.L()
 
-	store := store.NewLegacyMusicStore(logger, rootPath)
+	store := store.NewGameQuestionLegacyStore(logger, rootPath)
 	gotQuestions, gotErr := store.SelectRandomQuestions(ctx, settings)
 
 	require.NoError(t, gotErr)
@@ -99,7 +99,7 @@ func TestReproduce(t *testing.T) {
 	config.Development = false
 	logger, _ := config.Build()
 
-	store := store.NewLegacyMusicStore(logger, rootPath)
+	store := store.NewGameQuestionLegacyStore(logger, rootPath)
 	gotQuestions, gotErr := store.SelectRandomQuestions(ctx, settings)
 
 	require.NoError(t, gotErr)

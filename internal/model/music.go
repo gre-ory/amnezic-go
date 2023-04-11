@@ -18,12 +18,10 @@ type Music struct {
 	Mp3Url        string
 	ArtistId      MusicArtistId
 	AlbumId       MusicAlbumId
-	GenreId       MusicGenreId
 
 	// consolidated data
 	Artist *MusicArtist
 	Album  *MusicAlbum
-	Genre  *MusicGenre
 }
 
 func (o *Music) Copy() *Music {
@@ -37,7 +35,6 @@ func (o *Music) Copy() *Music {
 		Mp3Url:        o.Mp3Url,
 		ArtistId:      o.ArtistId,
 		AlbumId:       o.AlbumId,
-		GenreId:       o.GenreId,
 	}
 }
 
@@ -53,9 +50,6 @@ func (o *Music) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	}
 	if o.Album != nil {
 		enc.AddObject("album", o.Album)
-	}
-	if o.Genre != nil {
-		enc.AddObject("genre", o.Genre)
 	}
 	return nil
 }
