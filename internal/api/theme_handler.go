@@ -32,10 +32,57 @@ type themeHandler struct {
 // register
 
 func (h *themeHandler) RegisterRoutes(router *httprouter.Router) {
+	router.HandlerFunc(http.MethodGet, "/api/theme", h.handleListTheme)
 	router.HandlerFunc(http.MethodPut, "/api/theme/new", h.handleCreateTheme)
 	router.HandlerFunc(http.MethodGet, "/api/theme/:theme_id", h.handleRetrieveTheme)
 	router.HandlerFunc(http.MethodPost, "/api/theme/:theme_id", h.handleUpdateTheme)
 	router.HandlerFunc(http.MethodDelete, "/api/theme/:theme_id", h.handleDeleteTheme)
+}
+
+// //////////////////////////////////////////////////
+// list
+
+func (h *themeHandler) handleListTheme(resp http.ResponseWriter, req *http.Request) {
+
+	ctx := req.Context()
+
+	var themes []*model.ThemeInfo
+	var err error
+
+	switch {
+	default:
+
+		h.logger.Info("[api] list themes")
+
+		//
+		// execute
+		//
+
+		themes, err = h.service.ListThemes(ctx)
+		if err != nil {
+			break
+		}
+
+		//
+		// encode response
+		//
+
+		resp.Header().Set("Content-Type", "application/json")
+		resp.WriteHeader(http.StatusOK)
+		err = json.NewEncoder(resp).Encode(toJsonThemesResponse(themes))
+		if err != nil {
+			break
+		}
+		return
+
+	}
+
+	//
+	// encode error
+	//
+
+	// TODO status code
+	encodeError(resp, http.StatusBadRequest, err.Error())
 }
 
 // //////////////////////////////////////////////////
@@ -324,6 +371,22 @@ type JsonThemeBody struct {
 // //////////////////////////////////////////////////
 // encode
 
+func toJsonThemesResponse(themes []*model.ThemeInfo) *JsonThemesResponse {
+	return &JsonThemesResponse{
+		Success: true,
+		Themes:  util.Convert(themes, toJsonThemeInfo),
+	}
+}
+
+func toJsonThemeInfo(theme *model.ThemeInfo) *JsonThemeInfo {
+	return &JsonThemeInfo{
+		Id:         int64(theme.Id),
+		Title:      theme.Title,
+		ImgUrl:     theme.ImgUrl,
+		NbQuestion: theme.NbQuestion,
+	}
+}
+
 func toJsonThemeResponse(theme *model.Theme) *JsonThemeResponse {
 	return &JsonThemeResponse{
 		Success: true,
@@ -356,6 +419,18 @@ func toJsonThemeQuestion(question *model.ThemeQuestion) *JsonThemeQuestion {
 	}
 
 	return jsonQuestion
+}
+
+type JsonThemesResponse struct {
+	Success bool             `json:"success,omitempty"`
+	Themes  []*JsonThemeInfo `json:"themes"`
+}
+
+type JsonThemeInfo struct {
+	Id         int64  `json:"id,omitempty"`
+	Title      string `json:"title,omitempty"`
+	ImgUrl     string `json:"imgUrl,omitempty"`
+	NbQuestion int    `json:"nbQuestion,omitempty"`
 }
 
 type JsonThemeResponse struct {

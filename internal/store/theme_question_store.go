@@ -15,4 +15,5 @@ type ThemeQuestionStore interface {
 	Update(ctx context.Context, themeQuestion *model.ThemeQuestion) (*model.ThemeQuestion, error)
 	Delete(ctx context.Context, filter *model.ThemeQuestionFilter) error
 	List(ctx context.Context, filter *model.ThemeQuestionFilter) ([]*model.ThemeQuestion, error)
+	CountByTheme(ctx context.Context) (map[model.ThemeId]int, error)
 }

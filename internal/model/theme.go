@@ -24,6 +24,14 @@ func (o *Theme) Copy() *Theme {
 	}
 }
 
+func (o *Theme) GetInfo() *ThemeInfo {
+	return &ThemeInfo{
+		Id:     o.Id,
+		Title:  o.Title,
+		ImgUrl: o.ImgUrl,
+	}
+}
+
 func (o *Theme) Equal(other *Theme) bool {
 	if o == nil {
 		return other == nil

@@ -17,6 +17,9 @@ func (o *ThemeFilter) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 }
 
 func (o *ThemeFilter) IsMatching(candidate *Theme) bool {
+	if o == nil {
+		return true
+	}
 	if o.ThemeId != 0 {
 		if candidate.Id == o.ThemeId {
 			return true

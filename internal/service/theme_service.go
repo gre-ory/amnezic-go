@@ -14,6 +14,7 @@ import (
 // theme service
 
 type ThemeService interface {
+	ListThemes(ctx context.Context) ([]*model.ThemeInfo, error)
 	CreateTheme(ctx context.Context, theme *model.Theme) (*model.Theme, error)
 	RetrieveTheme(ctx context.Context, id model.ThemeId) (*model.Theme, error)
 	UpdateTheme(ctx context.Context, theme *model.Theme) (*model.Theme, error)
@@ -34,6 +35,48 @@ type themeService struct {
 	themeStore         store.ThemeStore
 	themeQuestionStore store.ThemeQuestionStore
 	musicStore         store.MusicStore
+}
+
+func (s *themeService) ListThemes(ctx context.Context) ([]*model.ThemeInfo, error) {
+
+	var themes []*model.Theme
+	var infos []*model.ThemeInfo
+	var err error
+
+	defer func() {
+		if err == nil {
+			s.logger.Info("[ OK ] list themes")
+		} else {
+			s.logger.Info("[ KO ] list themes", zap.Error(err))
+		}
+	}()
+
+	//
+	// list themes
+	//
+
+	s.logger.Info("[DEBUG] list themes")
+	themes, err = s.themeStore.List(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	infos = util.Convert(themes, (*model.Theme).GetInfo)
+
+	//
+	// count questions
+	//
+
+	s.logger.Info("[DEBUG] count questions")
+	count, err := s.themeQuestionStore.CountByTheme(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, info := range infos {
+		info.NbQuestion = count[info.Id]
+	}
+
+	return infos, nil
 }
 
 // //////////////////////////////////////////////////

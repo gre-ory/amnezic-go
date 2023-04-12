@@ -83,3 +83,15 @@ func (s *themeQuestionMemoryStore) List(ctx context.Context, filter *model.Theme
 
 	return questions, nil
 }
+
+func (s *themeQuestionMemoryStore) CountByTheme(ctx context.Context) (map[model.ThemeId]int, error) {
+	s.themeQuestionsLock.Lock()
+	defer s.themeQuestionsLock.Unlock()
+
+	count := make(map[model.ThemeId]int, 0)
+	for _, question := range s.themeQuestions {
+		count[question.ThemeId]++
+	}
+
+	return count, nil
+}
