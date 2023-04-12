@@ -12,12 +12,12 @@ type MusicId int64
 type DeezerMusicId int64
 
 type Music struct {
-	Id            MusicId
-	DeezerMusicId DeezerMusicId
-	Name          string
-	Mp3Url        string
-	ArtistId      MusicArtistId
-	AlbumId       MusicAlbumId
+	Id       MusicId
+	DeezerId DeezerMusicId
+	Name     string
+	Mp3Url   string
+	ArtistId MusicArtistId
+	AlbumId  MusicAlbumId
 
 	// consolidated data
 	Artist *MusicArtist
@@ -29,19 +29,19 @@ func (o *Music) Copy() *Music {
 		return nil
 	}
 	return &Music{
-		Id:            o.Id,
-		DeezerMusicId: o.DeezerMusicId,
-		Name:          o.Name,
-		Mp3Url:        o.Mp3Url,
-		ArtistId:      o.ArtistId,
-		AlbumId:       o.AlbumId,
+		Id:       o.Id,
+		DeezerId: o.DeezerId,
+		Name:     o.Name,
+		Mp3Url:   o.Mp3Url,
+		ArtistId: o.ArtistId,
+		AlbumId:  o.AlbumId,
 	}
 }
 
 func (o *Music) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	enc.AddInt64("id", int64(o.Id))
-	if o.DeezerMusicId != 0 {
-		enc.AddInt64("deezer-music-id", int64(o.DeezerMusicId))
+	if o.DeezerId != 0 {
+		enc.AddInt64("deezer-id", int64(o.DeezerId))
 	}
 	enc.AddString("name", o.Name)
 	enc.AddString("mp3-url", o.Mp3Url)

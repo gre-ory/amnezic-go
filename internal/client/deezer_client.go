@@ -84,11 +84,11 @@ func (c *deezerClient) GetTrack(trackId model.DeezerMusicId) (*model.Music, erro
 
 func toMusic(jsonTrack *JsonDeezerTrack) *model.Music {
 	return &model.Music{
-		DeezerMusicId: model.DeezerMusicId(jsonTrack.Id),
-		Name:          jsonTrack.Title,
-		Mp3Url:        jsonTrack.Preview,
-		Artist:        toArtist(jsonTrack.Artist),
-		Album:         toAlbum(jsonTrack.Album),
+		DeezerId: model.DeezerMusicId(jsonTrack.Id),
+		Name:     jsonTrack.Title,
+		Mp3Url:   jsonTrack.Preview,
+		Artist:   toArtist(jsonTrack.Artist),
+		Album:    toAlbum(jsonTrack.Album),
 	}
 }
 
@@ -97,9 +97,9 @@ func toArtist(jsonArtist *JsonDeezerArtist) *model.MusicArtist {
 		return nil
 	}
 	return &model.MusicArtist{
-		DeezerArtistId: model.DeezerArtistId(jsonArtist.Id),
-		Name:           jsonArtist.Name,
-		ImgUrl:         jsonArtist.Picture,
+		DeezerId: model.DeezerArtistId(jsonArtist.Id),
+		Name:     jsonArtist.Name,
+		ImgUrl:   jsonArtist.Picture,
 	}
 }
 
@@ -108,9 +108,9 @@ func toAlbum(jsonAlbum *JsonDeezerAlbum) *model.MusicAlbum {
 		return nil
 	}
 	return &model.MusicAlbum{
-		DeezerAlbumId: model.DeezerAlbumId(jsonAlbum.Id),
-		Name:          jsonAlbum.Title,
-		ImgUrl:        jsonAlbum.Cover,
+		DeezerId: model.DeezerAlbumId(jsonAlbum.Id),
+		Name:     jsonAlbum.Title,
+		ImgUrl:   jsonAlbum.Cover,
 	}
 }
 

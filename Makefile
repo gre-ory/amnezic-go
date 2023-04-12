@@ -26,7 +26,7 @@ Q := @
 .PHONY:	all build test install run
 
 build:
-	$(Q)CGO_ENABLED=0 GOOS=linux go build $(GO_BUILD_FLAGS) -ldflags "${LDFLAGS}" -o ${SERVER} ${PACKAGE}
+	$(Q)CGO_ENABLED=1 GOOS=linux go build $(GO_BUILD_FLAGS) -ldflags "${LDFLAGS}" -o ${SERVER} ${PACKAGE}
 run: build
 	@./scripts/run.sh
 test:
@@ -35,3 +35,9 @@ react:
 	@./scripts/get-react.sh
 push:
 	@./scripts/push-docker.sh
+db-status:
+	@goose -dir "./db" "sqlite3" "./db/amnezic.db" status
+db-up:
+	@goose -dir "./db" "sqlite3" "./db/amnezic.db" up
+db-down:
+	@goose -dir "./db" "sqlite3" "./db/amnezic.db" down

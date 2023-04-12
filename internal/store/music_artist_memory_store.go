@@ -55,7 +55,7 @@ func (s *musicArtistMemoryStore) RetrieveByDeezerId(ctx context.Context, deezerI
 	}
 
 	for _, musicArtist := range s.musicArtists {
-		if musicArtist.DeezerArtistId == deezerId {
+		if musicArtist.DeezerId == deezerId {
 			return musicArtist.Copy(), nil
 		}
 	}

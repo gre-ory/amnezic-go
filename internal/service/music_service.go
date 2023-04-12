@@ -117,9 +117,9 @@ func (s *musicService) AddDeezerMusic(ctx context.Context, deezerId model.Deezer
 	// create album ( if necessary )
 	//
 
-	if music.Album != nil && music.Album.DeezerAlbumId != 0 {
-		s.logger.Info(fmt.Sprintf("[DEBUG] retrieve album from deezer id %d", music.Album.DeezerAlbumId))
-		album, err = s.albumStore.RetrieveByDeezerId(ctx, music.Album.DeezerAlbumId)
+	if music.Album != nil && music.Album.DeezerId != 0 {
+		s.logger.Info(fmt.Sprintf("[DEBUG] retrieve album from deezer id %d", music.Album.DeezerId))
+		album, err = s.albumStore.RetrieveByDeezerId(ctx, music.Album.DeezerId)
 		if err != nil {
 			if !errors.Is(err, model.ErrMusicAlbumNotFound) {
 				return nil, err
@@ -138,9 +138,9 @@ func (s *musicService) AddDeezerMusic(ctx context.Context, deezerId model.Deezer
 	// create artist ( if necessary )
 	//
 
-	if music.Artist != nil && music.Artist.DeezerArtistId != 0 {
-		s.logger.Info(fmt.Sprintf("[DEBUG] retrieve artist from deezer id %d", music.Artist.DeezerArtistId))
-		artist, err = s.artistStore.RetrieveByDeezerId(ctx, music.Artist.DeezerArtistId)
+	if music.Artist != nil && music.Artist.DeezerId != 0 {
+		s.logger.Info(fmt.Sprintf("[DEBUG] retrieve artist from deezer id %d", music.Artist.DeezerId))
+		artist, err = s.artistStore.RetrieveByDeezerId(ctx, music.Artist.DeezerId)
 		if err != nil {
 			if !errors.Is(err, model.ErrMusicArtistNotFound) {
 				return nil, err

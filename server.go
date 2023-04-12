@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"embed"
 	"fmt"
 	"io/fs"
@@ -18,6 +19,8 @@ import (
 	"github.com/gre-ory/amnezic-go/internal/util"
 	"github.com/julienschmidt/httprouter"
 	"go.uber.org/zap"
+
+	_ "github.com/mattn/go-sqlite3" // Import go-sqlite3 library
 )
 
 // //////////////////////////////////////////////////
@@ -148,11 +151,20 @@ func (s *BackendServer) Run(ctx context.Context) {
 	// store
 	//
 
+	db, _ := sql.Open("sqlite3", "./db/amnezic.db")
+	defer db.Close()
+
 	gameStore := store.NewGameMemoryStore()
 	gameQuestionStore := store.NewGameQuestionLegacyStore(s.logger, store.RootPath_FreeDotFr)
-	musicStore := store.NewMusicMemoryStore()
-	albumStore := store.NewMusicAlbumMemoryStore()
-	artistStore := store.NewMusicArtistMemoryStore()
+
+	// musicStore := store.NewMusicMemoryStore()
+	// albumStore := store.NewMusicAlbumMemoryStore()
+	// artistStore := store.NewMusicArtistMemoryStore()
+
+	musicStore := store.NewMusicStore(s.logger, db)
+	albumStore := store.NewMusicAlbumStore(s.logger, db)
+	artistStore := store.NewMusicArtistStore(s.logger, db)
+
 	themeStore := store.NewThemeMemoryStore()
 	themeQuestionStore := store.NewThemeQuestionMemoryStore()
 

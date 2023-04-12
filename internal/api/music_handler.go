@@ -293,7 +293,7 @@ func toJsonMusic(music *model.Music) *JsonMusic {
 	}
 	return &JsonMusic{
 		Id:       int64(music.Id),
-		DeezerId: int64(music.DeezerMusicId),
+		DeezerId: int64(music.DeezerId),
 		Name:     music.Name,
 		Mp3Url:   music.Mp3Url,
 		Artist:   toJsonArtist(music.Artist),
@@ -307,7 +307,7 @@ func toJsonArtist(artist *model.MusicArtist) *JsonMusicArtist {
 	}
 	return &JsonMusicArtist{
 		Id:       int64(artist.Id),
-		DeezerId: int64(artist.DeezerArtistId),
+		DeezerId: int64(artist.DeezerId),
 		Name:     artist.Name,
 		ImgUrl:   artist.ImgUrl,
 	}
@@ -319,7 +319,7 @@ func toJsonAlbum(album *model.MusicAlbum) *JsonMusicAlbum {
 	}
 	return &JsonMusicAlbum{
 		Id:       int64(album.Id),
-		DeezerId: int64(album.DeezerAlbumId),
+		DeezerId: int64(album.DeezerId),
 		Name:     album.Name,
 		ImgUrl:   album.ImgUrl,
 	}
