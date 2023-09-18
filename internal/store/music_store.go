@@ -3,9 +3,9 @@ package store
 import (
 	"context"
 	"database/sql"
-	"fmt"
 
 	"github.com/gre-ory/amnezic-go/internal/model"
+	"github.com/gre-ory/amnezic-go/internal/util"
 	"go.uber.org/zap"
 )
 
@@ -13,157 +13,114 @@ import (
 // music store
 
 type MusicStore interface {
-	Create(ctx context.Context, music *model.Music) (*model.Music, error)
-	Retrieve(ctx context.Context, id model.MusicId) (*model.Music, error)
-	RetrieveByDeezerId(ctx context.Context, deezerId model.DeezerMusicId) (*model.Music, error)
-	Update(ctx context.Context, music *model.Music) (*model.Music, error)
-	Delete(ctx context.Context, id model.MusicId) error
-	IsAlbumUsed(ctx context.Context, albumId model.MusicAlbumId) (bool, error)
-	IsArtistUsed(ctx context.Context, artistId model.MusicArtistId) (bool, error)
+	Create(ctx context.Context, tx *sql.Tx, music *model.Music) *model.Music
+	Retrieve(ctx context.Context, tx *sql.Tx, id model.MusicId) *model.Music
+	SearchByDeezerId(ctx context.Context, tx *sql.Tx, deezerId model.DeezerMusicId) *model.Music
+	Update(ctx context.Context, tx *sql.Tx, music *model.Music) *model.Music
+	Delete(ctx context.Context, tx *sql.Tx, id model.MusicId)
+	IsAlbumUsed(ctx context.Context, tx *sql.Tx, albumId model.MusicAlbumId) bool
+	IsArtistUsed(ctx context.Context, tx *sql.Tx, artistId model.MusicArtistId) bool
 }
 
-func NewMusicStore(logger *zap.Logger, db *sql.DB) MusicStore {
+func NewMusicStore(logger *zap.Logger) MusicStore {
 	return &musicStore{
-		logger:      logger,
-		db:          db,
-		table:       "music",
-		columns:     "id,deezer_id,artist_id,album_id,name,mp3_url",
-		errNotFound: model.ErrMusicNotFound,
+		SqlTable: util.NewSqlTable[MusicRow](logger, "music", model.ErrMusicNotFound),
 	}
 }
 
 type musicStore struct {
-	logger      *zap.Logger
-	db          *sql.DB
-	table       string
-	columns     string
-	errNotFound error
+	util.SqlTable[MusicRow]
+	util.SqlEncoder[model.Music, MusicRow]
+	util.SqlDecoder[MusicRow, model.Music]
 }
 
 // //////////////////////////////////////////////////
-// adapter
+// row
 
-func (s *musicStore) toModel(row *sql.Rows) *model.Music {
-	var id int64
-	var deezerMusicId int64
-	var artistId int64
-	var albumId int64
-	var name string
-	var mp3Url string
-	row.Scan(&id, &deezerMusicId, &artistId, &albumId, &name, &mp3Url)
+type MusicRow struct {
+	Id       int64  `sql:"id,auto-generated"`
+	DeezerId int64  `sql:"deezer_id"`
+	ArtistId int64  `sql:"artist_id"`
+	AlbumId  int64  `sql:"album_id"`
+	Name     string `sql:"name"`
+	Mp3Url   string `sql:"mp3_url"`
+}
+
+func (s *musicStore) EncodeRow(obj *model.Music) *MusicRow {
+	return &MusicRow{
+		Id:       int64(obj.Id),
+		DeezerId: int64(obj.DeezerId),
+		Name:     obj.Name,
+		Mp3Url:   obj.Mp3Url,
+		ArtistId: int64(obj.ArtistId),
+		AlbumId:  int64(obj.AlbumId),
+	}
+}
+
+func (s *musicStore) DecodeRow(row *MusicRow) *model.Music {
+	if row == nil {
+		return nil
+	}
 	return &model.Music{
-		Id:       model.MusicId(id),
-		DeezerId: model.DeezerMusicId(deezerMusicId),
-		ArtistId: model.MusicArtistId(artistId),
-		AlbumId:  model.MusicAlbumId(albumId),
-		Name:     name,
-		Mp3Url:   mp3Url,
+		Id:       model.MusicId(row.Id),
+		DeezerId: model.DeezerMusicId(row.DeezerId),
+		Name:     row.Name,
+		Mp3Url:   row.Mp3Url,
+		ArtistId: model.MusicArtistId(row.ArtistId),
+		AlbumId:  model.MusicAlbumId(row.AlbumId),
 	}
 }
 
 // //////////////////////////////////////////////////
 // create
 
-func (s *musicStore) Create(ctx context.Context, music *model.Music) (*model.Music, error) {
-
-	query := fmt.Sprintf("INSERT INTO %s (deezer_id,artist_id,album_id,name,mp3_url) VALUES ($1,$2,$3,$4,$5) RETURNING %s", s.table, s.columns)
-	args := []any{music.DeezerId, music.ArtistId, music.AlbumId, music.Name, music.Mp3Url}
-	s.logger.Info(fmt.Sprintf("[DEBUG] query: %s, args: %#v", query, args))
-
-	statement, err := s.db.Prepare(query) // to avoid SQL injection
-	if err != nil {
-		return nil, err
-	}
-
-	rows, err := statement.Query(args...)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	for rows.Next() {
-		return s.toModel(rows), nil
-	}
-
-	return nil, s.errNotFound
+func (s *musicStore) Create(ctx context.Context, tx *sql.Tx, obj *model.Music) *model.Music {
+	return s.DecodeRow(s.InsertRow(ctx, tx, s.EncodeRow(obj)))
 }
 
 // //////////////////////////////////////////////////
 // retrieve
 
-func (s *musicStore) Retrieve(ctx context.Context, id model.MusicId) (*model.Music, error) {
-
-	query := fmt.Sprintf("SELECT %s FROM %s WHERE id = $1", s.columns, s.table)
-	args := []any{id}
-	s.logger.Info(fmt.Sprintf("[DEBUG] query: %s, args: %#v", query, args))
-
-	rows, err := s.db.Query(query, args...)
+func (s *musicStore) Retrieve(ctx context.Context, tx *sql.Tx, id model.MusicId) *model.Music {
+	row, err := s.SelectRow(ctx, tx, "WHERE id = $1", id)
 	if err != nil {
-		return nil, err
+		panic(err)
 	}
-	defer rows.Close()
-
-	for rows.Next() {
-		return s.toModel(rows), nil
-	}
-
-	return nil, s.errNotFound
+	return s.DecodeRow(row)
 }
 
 // //////////////////////////////////////////////////
-// retrieve by deezer id
+// search by deezer id
 
-func (s *musicStore) RetrieveByDeezerId(ctx context.Context, deezerId model.DeezerMusicId) (*model.Music, error) {
-
-	query := fmt.Sprintf("SELECT %s FROM %s WHERE deezer_id = $1", s.columns, s.table)
-	args := []any{deezerId}
-	s.logger.Info(fmt.Sprintf("[DEBUG] query: %s, args: %#v", query, args))
-
-	rows, err := s.db.Query(query, args...)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	for rows.Next() {
-		return s.toModel(rows), nil
-	}
-
-	return nil, s.errNotFound
+func (s *musicStore) SearchByDeezerId(ctx context.Context, tx *sql.Tx, deezerId model.DeezerMusicId) *model.Music {
+	row, _ := s.SelectRow(ctx, tx, "WHERE deezer_id = $1", deezerId)
+	return s.DecodeRow(row)
 }
 
 // //////////////////////////////////////////////////
 // update
 
-func (s *musicStore) Update(ctx context.Context, music *model.Music) (*model.Music, error) {
-	return nil, model.ErrNotImplemented
+func (s *musicStore) Update(ctx context.Context, tx *sql.Tx, obj *model.Music) *model.Music {
+	return s.DecodeRow(s.UpdateRow(ctx, tx, s.EncodeRow(obj), "WHERE id = $1", obj.Id))
 }
 
 // //////////////////////////////////////////////////
 // delete
 
-func (s *musicStore) Delete(ctx context.Context, id model.MusicId) error {
-	return model.ErrNotImplemented
+func (s *musicStore) Delete(ctx context.Context, tx *sql.Tx, id model.MusicId) {
+	s.DeleteRow(ctx, tx, "WHERE id = $1", id)
 }
 
 // //////////////////////////////////////////////////
 // album usage
 
-func (s *musicStore) IsAlbumUsed(ctx context.Context, albumId model.MusicAlbumId) (bool, error) {
-	if albumId == 0 {
-		return false, nil
-	}
-
-	return false, model.ErrNotImplemented
+func (s *musicStore) IsAlbumUsed(ctx context.Context, tx *sql.Tx, albumId model.MusicAlbumId) bool {
+	return s.ExistsRow(ctx, tx, "WHERE album_id = $1", albumId)
 }
 
 // //////////////////////////////////////////////////
 // artist usage
 
-func (s *musicStore) IsArtistUsed(ctx context.Context, artistId model.MusicArtistId) (bool, error) {
-	if artistId == 0 {
-		return false, nil
-	}
-
-	return false, model.ErrNotImplemented
+func (s *musicStore) IsArtistUsed(ctx context.Context, tx *sql.Tx, artistId model.MusicArtistId) bool {
+	return s.ExistsRow(ctx, tx, "WHERE artist_id = $1", artistId)
 }

@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"database/sql"
 	"sync"
 
 	"github.com/gre-ory/amnezic-go/internal/model"
@@ -25,63 +26,62 @@ var (
 	NextMusicArtistId = 0
 )
 
-func (s *musicArtistMemoryStore) Create(ctx context.Context, musicArtist *model.MusicArtist) (*model.MusicArtist, error) {
+func (s *musicArtistMemoryStore) Create(ctx context.Context, _ *sql.Tx, musicArtist *model.MusicArtist) *model.MusicArtist {
 	s.musicArtistsLock.Lock()
 	defer s.musicArtistsLock.Unlock()
 
 	NextMusicArtistId++
 	musicArtist.Id = model.MusicArtistId(NextMusicArtistId)
 	s.musicArtists[musicArtist.Id] = musicArtist.Copy()
-	return s.musicArtists[musicArtist.Id].Copy(), nil
+	return s.musicArtists[musicArtist.Id].Copy()
 }
 
-func (s *musicArtistMemoryStore) Retrieve(ctx context.Context, id model.MusicArtistId) (*model.MusicArtist, error) {
+func (s *musicArtistMemoryStore) Retrieve(ctx context.Context, _ *sql.Tx, id model.MusicArtistId) *model.MusicArtist {
 	s.musicArtistsLock.Lock()
 	defer s.musicArtistsLock.Unlock()
 
 	musicArtist, found := s.musicArtists[id]
 	if !found {
-		return nil, model.ErrMusicArtistNotFound
+		panic(model.ErrMusicArtistNotFound)
 	}
-	return musicArtist.Copy(), nil
+	return musicArtist.Copy()
 }
 
-func (s *musicArtistMemoryStore) RetrieveByDeezerId(ctx context.Context, deezerId model.DeezerArtistId) (*model.MusicArtist, error) {
+func (s *musicArtistMemoryStore) SearchByDeezerId(ctx context.Context, _ *sql.Tx, deezerId model.DeezerArtistId) *model.MusicArtist {
 	s.musicArtistsLock.Lock()
 	defer s.musicArtistsLock.Unlock()
 
 	if deezerId == 0 {
-		return nil, model.ErrMusicArtistNotFound
+		panic(model.ErrInvalidDeezerId)
 	}
 
 	for _, musicArtist := range s.musicArtists {
 		if musicArtist.DeezerId == deezerId {
-			return musicArtist.Copy(), nil
+			return musicArtist.Copy()
 		}
 	}
-	return nil, model.ErrMusicArtistNotFound
+	return nil
 }
 
-func (s *musicArtistMemoryStore) Update(ctx context.Context, musicArtist *model.MusicArtist) (*model.MusicArtist, error) {
+func (s *musicArtistMemoryStore) Update(ctx context.Context, _ *sql.Tx, musicArtist *model.MusicArtist) *model.MusicArtist {
 	s.musicArtistsLock.Lock()
 	defer s.musicArtistsLock.Unlock()
 
 	_, found := s.musicArtists[musicArtist.Id]
 	if !found {
-		return nil, model.ErrMusicArtistNotFound
+		panic(model.ErrMusicArtistNotFound)
 	}
 	s.musicArtists[musicArtist.Id] = musicArtist.Copy()
-	return s.musicArtists[musicArtist.Id].Copy(), nil
+	return s.musicArtists[musicArtist.Id].Copy()
 }
 
-func (s *musicArtistMemoryStore) Delete(ctx context.Context, id model.MusicArtistId) error {
+func (s *musicArtistMemoryStore) Delete(ctx context.Context, _ *sql.Tx, id model.MusicArtistId) {
 	s.musicArtistsLock.Lock()
 	defer s.musicArtistsLock.Unlock()
 
 	_, found := s.musicArtists[id]
 	if !found {
-		return model.ErrMusicArtistNotFound
+		panic(model.ErrMusicArtistNotFound)
 	}
 	delete(s.musicArtists, id)
-	return nil
 }

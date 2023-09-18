@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"database/sql"
 
 	"github.com/gre-ory/amnezic-go/internal/model"
 )
@@ -10,10 +11,10 @@ import (
 // themeQuestion store
 
 type ThemeQuestionStore interface {
-	Create(ctx context.Context, themeQuestion *model.ThemeQuestion) (*model.ThemeQuestion, error)
-	Retrieve(ctx context.Context, id model.ThemeQuestionId) (*model.ThemeQuestion, error)
-	Update(ctx context.Context, themeQuestion *model.ThemeQuestion) (*model.ThemeQuestion, error)
-	Delete(ctx context.Context, filter *model.ThemeQuestionFilter) error
-	List(ctx context.Context, filter *model.ThemeQuestionFilter) ([]*model.ThemeQuestion, error)
-	CountByTheme(ctx context.Context) (map[model.ThemeId]int, error)
+	Create(ctx context.Context, tx *sql.Tx, themeQuestion *model.ThemeQuestion) *model.ThemeQuestion
+	Retrieve(ctx context.Context, tx *sql.Tx, id model.ThemeQuestionId) *model.ThemeQuestion
+	Update(ctx context.Context, tx *sql.Tx, themeQuestion *model.ThemeQuestion) *model.ThemeQuestion
+	Delete(ctx context.Context, tx *sql.Tx, filter *model.ThemeQuestionFilter)
+	List(ctx context.Context, tx *sql.Tx, filter *model.ThemeQuestionFilter) []*model.ThemeQuestion
+	CountByTheme(ctx context.Context, tx *sql.Tx) map[model.ThemeId]int
 }

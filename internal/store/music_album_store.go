@@ -3,9 +3,9 @@ package store
 import (
 	"context"
 	"database/sql"
-	"fmt"
 
 	"github.com/gre-ory/amnezic-go/internal/model"
+	"github.com/gre-ory/amnezic-go/internal/util"
 	"go.uber.org/zap"
 )
 
@@ -13,130 +13,92 @@ import (
 // music album store
 
 type MusicAlbumStore interface {
-	Create(ctx context.Context, music *model.MusicAlbum) (*model.MusicAlbum, error)
-	Retrieve(ctx context.Context, id model.MusicAlbumId) (*model.MusicAlbum, error)
-	RetrieveByDeezerId(ctx context.Context, deezerId model.DeezerAlbumId) (*model.MusicAlbum, error)
-	Update(ctx context.Context, music *model.MusicAlbum) (*model.MusicAlbum, error)
-	Delete(ctx context.Context, id model.MusicAlbumId) error
+	Create(ctx context.Context, tx *sql.Tx, music *model.MusicAlbum) *model.MusicAlbum
+	Retrieve(ctx context.Context, tx *sql.Tx, id model.MusicAlbumId) *model.MusicAlbum
+	SearchByDeezerId(ctx context.Context, tx *sql.Tx, deezerId model.DeezerAlbumId) *model.MusicAlbum
+	Update(ctx context.Context, tx *sql.Tx, music *model.MusicAlbum) *model.MusicAlbum
+	Delete(ctx context.Context, tx *sql.Tx, id model.MusicAlbumId)
 }
 
-func NewMusicAlbumStore(logger *zap.Logger, db *sql.DB) MusicAlbumStore {
+func NewMusicAlbumStore(logger *zap.Logger) MusicAlbumStore {
 	return &musicAlbumStore{
-		logger:      logger,
-		db:          db,
-		table:       "music_album",
-		columns:     "id,deezer_id,name,img_url",
-		errNotFound: model.ErrMusicAlbumNotFound,
+		SqlTable: util.NewSqlTable[MusicAlbumRow](logger, "music_album", model.ErrMusicAlbumNotFound),
 	}
 }
 
 type musicAlbumStore struct {
-	logger      *zap.Logger
-	db          *sql.DB
-	table       string
-	columns     string
-	errNotFound error
+	util.SqlTable[MusicAlbumRow]
+	util.SqlEncoder[model.MusicArtist, MusicArtistRow]
+	util.SqlDecoder[MusicArtistRow, model.MusicArtist]
 }
 
 // //////////////////////////////////////////////////
-// adapter
+// row
 
-func (s *musicAlbumStore) toModel(row *sql.Rows) *model.MusicAlbum {
-	var id int64
-	var deezerAlbumId int64
-	var name string
-	var imgUrl string
-	row.Scan(&id, &deezerAlbumId, &name, &imgUrl)
+type MusicAlbumRow struct {
+	Id       int64  `sql:"id,auto-generated"`
+	DeezerId int64  `sql:"deezer_id"`
+	Name     string `sql:"name"`
+	ImgUrl   string `sql:"img_url"`
+}
+
+func (s *musicAlbumStore) EncodeRow(obj *model.MusicAlbum) *MusicAlbumRow {
+	return &MusicAlbumRow{
+		Id:       int64(obj.Id),
+		DeezerId: int64(obj.DeezerId),
+		Name:     obj.Name,
+		ImgUrl:   obj.ImgUrl,
+	}
+}
+
+func (s *musicAlbumStore) DecodeRow(row *MusicAlbumRow) *model.MusicAlbum {
+	if row == nil {
+		return nil
+	}
 	return &model.MusicAlbum{
-		Id:       model.MusicAlbumId(id),
-		DeezerId: model.DeezerAlbumId(deezerAlbumId),
-		Name:     name,
-		ImgUrl:   imgUrl,
+		Id:       model.MusicAlbumId(row.Id),
+		DeezerId: model.DeezerAlbumId(row.DeezerId),
+		Name:     row.Name,
+		ImgUrl:   row.ImgUrl,
 	}
 }
 
 // //////////////////////////////////////////////////
 // create
 
-func (s *musicAlbumStore) Create(ctx context.Context, album *model.MusicAlbum) (*model.MusicAlbum, error) {
-
-	query := fmt.Sprintf("INSERT INTO %s (deezer_id,name,img_url) VALUES ($1,$2,$3) RETURNING %s", s.table, s.columns)
-	args := []any{album.DeezerId, album.Name, album.ImgUrl}
-	s.logger.Info(fmt.Sprintf("[DEBUG] query: %s, args: %#v", query, args))
-
-	statement, err := s.db.Prepare(query) // to avoid SQL injection
-	if err != nil {
-		return nil, err
-	}
-
-	rows, err := statement.Query(args...)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	for rows.Next() {
-		return s.toModel(rows), nil
-	}
-
-	return nil, s.errNotFound
-
+func (s *musicAlbumStore) Create(ctx context.Context, tx *sql.Tx, obj *model.MusicAlbum) *model.MusicAlbum {
+	return s.DecodeRow(s.InsertRow(ctx, tx, s.EncodeRow(obj)))
 }
 
 // //////////////////////////////////////////////////
 // retrieve
 
-func (s *musicAlbumStore) Retrieve(ctx context.Context, id model.MusicAlbumId) (*model.MusicAlbum, error) {
-
-	query := fmt.Sprintf("SELECT %s FROM %s WHERE id = $1", s.columns, s.table)
-	args := []any{id}
-	s.logger.Info(fmt.Sprintf("[DEBUG] query: %s, args: %#v", query, args))
-
-	rows, err := s.db.Query(query, args...)
+func (s *musicAlbumStore) Retrieve(ctx context.Context, tx *sql.Tx, id model.MusicAlbumId) *model.MusicAlbum {
+	row, err := s.SelectRow(ctx, tx, "WHERE id = %s", id)
 	if err != nil {
-		return nil, err
+		panic(err)
 	}
-	defer rows.Close()
-
-	for rows.Next() {
-		return s.toModel(rows), nil
-	}
-
-	return nil, s.errNotFound
+	return s.DecodeRow(row)
 }
 
 // //////////////////////////////////////////////////
 // retrieve by deezer id
 
-func (s *musicAlbumStore) RetrieveByDeezerId(ctx context.Context, deezerId model.DeezerAlbumId) (*model.MusicAlbum, error) {
-
-	query := fmt.Sprintf("SELECT %s FROM %s WHERE deezer_id = $1", s.columns, s.table)
-	args := []any{deezerId}
-	s.logger.Info(fmt.Sprintf("[DEBUG] query: %s, args: %#v", query, args))
-
-	rows, err := s.db.Query(query, args...)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	for rows.Next() {
-		return s.toModel(rows), nil
-	}
-
-	return nil, s.errNotFound
+func (s *musicAlbumStore) SearchByDeezerId(ctx context.Context, tx *sql.Tx, deezerId model.DeezerAlbumId) *model.MusicAlbum {
+	row, _ := s.SelectRow(ctx, tx, "WHERE deezer_id = %s", deezerId)
+	return s.DecodeRow(row)
 }
 
 // //////////////////////////////////////////////////
 // update
 
-func (s *musicAlbumStore) Update(ctx context.Context, music *model.MusicAlbum) (*model.MusicAlbum, error) {
-	return nil, model.ErrNotImplemented
+func (s *musicAlbumStore) Update(ctx context.Context, tx *sql.Tx, obj *model.MusicAlbum) *model.MusicAlbum {
+	return s.DecodeRow(s.UpdateRow(ctx, tx, s.EncodeRow(obj), "WHERE id = %s", obj.Id))
 }
 
 // //////////////////////////////////////////////////
 // delete
 
-func (s *musicAlbumStore) Delete(ctx context.Context, id model.MusicAlbumId) error {
-	return model.ErrNotImplemented
+func (s *musicAlbumStore) Delete(ctx context.Context, tx *sql.Tx, id model.MusicAlbumId) {
+	s.DeleteRow(ctx, tx, "WHERE id = %s", id)
 }

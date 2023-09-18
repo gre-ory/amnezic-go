@@ -3,9 +3,9 @@ package store
 import (
 	"context"
 	"database/sql"
-	"fmt"
 
 	"github.com/gre-ory/amnezic-go/internal/model"
+	"github.com/gre-ory/amnezic-go/internal/util"
 	"go.uber.org/zap"
 )
 
@@ -13,129 +13,92 @@ import (
 // music artist store
 
 type MusicArtistStore interface {
-	Create(ctx context.Context, music *model.MusicArtist) (*model.MusicArtist, error)
-	Retrieve(ctx context.Context, id model.MusicArtistId) (*model.MusicArtist, error)
-	RetrieveByDeezerId(ctx context.Context, deezerId model.DeezerArtistId) (*model.MusicArtist, error)
-	Update(ctx context.Context, music *model.MusicArtist) (*model.MusicArtist, error)
-	Delete(ctx context.Context, id model.MusicArtistId) error
+	Create(ctx context.Context, tx *sql.Tx, music *model.MusicArtist) *model.MusicArtist
+	Retrieve(ctx context.Context, tx *sql.Tx, id model.MusicArtistId) *model.MusicArtist
+	SearchByDeezerId(ctx context.Context, tx *sql.Tx, deezerId model.DeezerArtistId) *model.MusicArtist
+	Update(ctx context.Context, tx *sql.Tx, music *model.MusicArtist) *model.MusicArtist
+	Delete(ctx context.Context, tx *sql.Tx, id model.MusicArtistId)
 }
 
-func NewMusicArtistStore(logger *zap.Logger, db *sql.DB) MusicArtistStore {
+func NewMusicArtistStore(logger *zap.Logger) MusicArtistStore {
 	return &musicArtistStore{
-		logger:      logger,
-		db:          db,
-		table:       "music_artist",
-		columns:     "id,deezer_id,name,img_url",
-		errNotFound: model.ErrMusicArtistNotFound,
+		SqlTable: util.NewSqlTable[MusicArtistRow](logger, "music_artist", model.ErrMusicArtistNotFound),
 	}
 }
 
 type musicArtistStore struct {
-	logger      *zap.Logger
-	db          *sql.DB
-	table       string
-	columns     string
-	errNotFound error
+	util.SqlTable[MusicArtistRow]
+	util.SqlEncoder[model.MusicArtist, MusicArtistRow]
+	util.SqlDecoder[MusicArtistRow, model.MusicArtist]
 }
 
 // //////////////////////////////////////////////////
-// adapter
+// row
 
-func (s *musicArtistStore) toModel(row *sql.Rows) *model.MusicArtist {
-	var id int64
-	var deezerArtistId int64
-	var name string
-	var imgUrl string
-	row.Scan(&id, &deezerArtistId, &name, &imgUrl)
+type MusicArtistRow struct {
+	Id       int64
+	DeezerId int64
+	Name     string
+	ImgUrl   string
+}
+
+func (s *musicArtistStore) EncodeRow(obj *model.MusicArtist) *MusicArtistRow {
+	return &MusicArtistRow{
+		Id:       int64(obj.Id),
+		DeezerId: int64(obj.DeezerId),
+		Name:     obj.Name,
+		ImgUrl:   obj.ImgUrl,
+	}
+}
+
+func (s *musicArtistStore) DecodeRow(row *MusicArtistRow) *model.MusicArtist {
+	if row == nil {
+		return nil
+	}
 	return &model.MusicArtist{
-		Id:       model.MusicArtistId(id),
-		DeezerId: model.DeezerArtistId(deezerArtistId),
-		Name:     name,
-		ImgUrl:   imgUrl,
+		Id:       model.MusicArtistId(row.Id),
+		DeezerId: model.DeezerArtistId(row.DeezerId),
+		Name:     row.Name,
+		ImgUrl:   row.ImgUrl,
 	}
 }
 
 // //////////////////////////////////////////////////
 // create
 
-func (s *musicArtistStore) Create(ctx context.Context, artist *model.MusicArtist) (*model.MusicArtist, error) {
-
-	query := fmt.Sprintf("INSERT INTO %s (deezer_id,name,img_url) VALUES ($1,$2,$3) RETURNING %s", s.table, s.columns)
-	args := []any{artist.DeezerId, artist.Name, artist.ImgUrl}
-	s.logger.Info(fmt.Sprintf("[DEBUG] query: %s, args: %#v", query, args))
-
-	statement, err := s.db.Prepare(query) // to avoid SQL injection
-	if err != nil {
-		return nil, err
-	}
-
-	rows, err := statement.Query(args...)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	for rows.Next() {
-		return s.toModel(rows), nil
-	}
-
-	return nil, s.errNotFound
+func (s *musicArtistStore) Create(ctx context.Context, tx *sql.Tx, obj *model.MusicArtist) *model.MusicArtist {
+	return s.DecodeRow(s.InsertRow(ctx, tx, s.EncodeRow(obj)))
 }
 
 // //////////////////////////////////////////////////
 // retrieve
 
-func (s *musicArtistStore) Retrieve(ctx context.Context, id model.MusicArtistId) (*model.MusicArtist, error) {
-
-	query := fmt.Sprintf("SELECT %s FROM %s WHERE id = $1", s.columns, s.table)
-	args := []any{id}
-	s.logger.Info(fmt.Sprintf("[DEBUG] query: %s, args: %#v", query, args))
-
-	rows, err := s.db.Query(query, args...)
+func (s *musicArtistStore) Retrieve(ctx context.Context, tx *sql.Tx, id model.MusicArtistId) *model.MusicArtist {
+	row, err := s.SelectRow(ctx, tx, "WHERE id = $1", id)
 	if err != nil {
-		return nil, err
+		panic(err)
 	}
-	defer rows.Close()
-
-	for rows.Next() {
-		return s.toModel(rows), nil
-	}
-
-	return nil, s.errNotFound
+	return s.DecodeRow(row)
 }
 
 // //////////////////////////////////////////////////
 // retrieve by deezer id
 
-func (s *musicArtistStore) RetrieveByDeezerId(ctx context.Context, deezerId model.DeezerArtistId) (*model.MusicArtist, error) {
-
-	query := fmt.Sprintf("SELECT %s FROM %s WHERE deezer_id = $1", s.columns, s.table)
-	args := []any{deezerId}
-	s.logger.Info(fmt.Sprintf("[DEBUG] query: %s, args: %#v", query, args))
-
-	rows, err := s.db.Query(query, args...)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	for rows.Next() {
-		return s.toModel(rows), nil
-	}
-
-	return nil, s.errNotFound
+func (s *musicArtistStore) SearchByDeezerId(ctx context.Context, tx *sql.Tx, deezerId model.DeezerArtistId) *model.MusicArtist {
+	row, _ := s.SelectRow(ctx, tx, "WHERE deezer_id = $1", deezerId)
+	return s.DecodeRow(row)
 }
 
 // //////////////////////////////////////////////////
 // update
 
-func (s *musicArtistStore) Update(ctx context.Context, music *model.MusicArtist) (*model.MusicArtist, error) {
-	return nil, model.ErrNotImplemented
+func (s *musicArtistStore) Update(ctx context.Context, tx *sql.Tx, obj *model.MusicArtist) *model.MusicArtist {
+	return s.DecodeRow(s.UpdateRow(ctx, tx, s.EncodeRow(obj), "WHERE id = $1", obj.Id))
 }
 
 // //////////////////////////////////////////////////
 // delete
 
-func (s *musicArtistStore) Delete(ctx context.Context, id model.MusicArtistId) error {
-	return model.ErrNotImplemented
+func (s *musicArtistStore) Delete(ctx context.Context, tx *sql.Tx, id model.MusicArtistId) {
+	s.DeleteRow(ctx, tx, "WHERE id = %s", id)
 }

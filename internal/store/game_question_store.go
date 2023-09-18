@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"database/sql"
 
 	"github.com/gre-ory/amnezic-go/internal/model"
 )
@@ -10,5 +11,5 @@ import (
 // game question store
 
 type GameQuestionStore interface {
-	SelectRandomQuestions(cxt context.Context, settings model.GameSettings) ([]*model.GameQuestion, error)
+	SelectRandomQuestions(cxt context.Context, tx *sql.Tx, settings model.GameSettings) []*model.GameQuestion
 }

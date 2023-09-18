@@ -2,10 +2,12 @@ package service
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 
 	"github.com/gre-ory/amnezic-go/internal/model"
 	"github.com/gre-ory/amnezic-go/internal/store"
+	"github.com/gre-ory/amnezic-go/internal/util"
 	"go.uber.org/zap"
 )
 
@@ -18,9 +20,10 @@ type GameService interface {
 	DeleteGame(ctx context.Context, id model.GameId) error
 }
 
-func NewGameService(logger *zap.Logger, gameStore store.GameStore, musicStore store.GameQuestionStore) GameService {
+func NewGameService(logger *zap.Logger, db *sql.DB, gameStore store.GameStore, musicStore store.GameQuestionStore) GameService {
 	return &gameService{
 		logger:     logger,
+		db:         db,
 		gameStore:  gameStore,
 		musicStore: musicStore,
 	}
@@ -28,38 +31,37 @@ func NewGameService(logger *zap.Logger, gameStore store.GameStore, musicStore st
 
 type gameService struct {
 	logger     *zap.Logger
+	db         *sql.DB
 	gameStore  store.GameStore
 	musicStore store.GameQuestionStore
 }
 
 func (s *gameService) CreateGame(ctx context.Context, settings model.GameSettings) (*model.Game, error) {
 
-	var questions []*model.GameQuestion
-	var err error
+	var game *model.Game
+	err := util.SqlTransaction(ctx, s.db, func(tx *sql.Tx) {
 
-	questions, err = s.musicStore.SelectRandomQuestions(ctx, settings)
-	if err != nil {
-		return nil, err
-	}
+		questions := s.musicStore.SelectRandomQuestions(ctx, tx, settings)
 
-	game := &model.Game{
-		Settings:  &settings,
-		Players:   s.createPlayers(settings.NbPlayer),
-		Questions: questions,
-	}
-
-	game, err = s.gameStore.Create(ctx, game)
-	if err != nil {
-		return nil, err
-	}
-
-	for questionIndex, question := range game.Questions {
-		question.Id = model.NewGameQuestionId(game.Id, questionIndex+1)
-		for answerIndex, answer := range question.Answers {
-			answer.Id = model.NewGameAnswerId(question.Id, answerIndex+1)
+		game = &model.Game{
+			Settings:  &settings,
+			Players:   s.createPlayers(settings.NbPlayer),
+			Questions: questions,
 		}
-	}
 
+		game = s.gameStore.Create(ctx, tx, game)
+
+		for questionIndex, question := range game.Questions {
+			question.Id = model.NewGameQuestionId(game.Id, questionIndex+1)
+			for answerIndex, answer := range question.Answers {
+				answer.Id = model.NewGameAnswerId(question.Id, answerIndex+1)
+			}
+		}
+	})
+
+	if err != nil {
+		return nil, err
+	}
 	return game, nil
 }
 
@@ -81,7 +83,11 @@ func (s *gameService) createPlayer(playerNumber int) *model.GamePlayer {
 }
 
 func (s *gameService) RetrieveGame(ctx context.Context, id model.GameId) (*model.Game, error) {
-	game, err := s.gameStore.Retrieve(ctx, id)
+
+	var game *model.Game
+	err := util.SqlTransaction(ctx, s.db, func(tx *sql.Tx) {
+		game = s.gameStore.Retrieve(ctx, tx, id)
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -89,5 +95,7 @@ func (s *gameService) RetrieveGame(ctx context.Context, id model.GameId) (*model
 }
 
 func (s *gameService) DeleteGame(ctx context.Context, id model.GameId) error {
-	return s.gameStore.Delete(ctx, id)
+	return util.SqlTransaction(ctx, s.db, func(tx *sql.Tx) {
+		s.gameStore.Delete(ctx, tx, id)
+	})
 }

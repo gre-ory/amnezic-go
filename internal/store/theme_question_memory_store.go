@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"database/sql"
 	"sync"
 
 	"github.com/gre-ory/amnezic-go/internal/model"
@@ -25,40 +26,40 @@ var (
 	NextThemeQuestionId = 0
 )
 
-func (s *themeQuestionMemoryStore) Create(ctx context.Context, themeQuestion *model.ThemeQuestion) (*model.ThemeQuestion, error) {
+func (s *themeQuestionMemoryStore) Create(ctx context.Context, _ *sql.Tx, themeQuestion *model.ThemeQuestion) *model.ThemeQuestion {
 	s.themeQuestionsLock.Lock()
 	defer s.themeQuestionsLock.Unlock()
 
 	NextThemeQuestionId++
 	themeQuestion.Id = model.ThemeQuestionId(NextThemeQuestionId)
 	s.themeQuestions[themeQuestion.Id] = themeQuestion.Copy()
-	return s.themeQuestions[themeQuestion.Id].Copy(), nil
+	return s.themeQuestions[themeQuestion.Id].Copy()
 }
 
-func (s *themeQuestionMemoryStore) Retrieve(ctx context.Context, id model.ThemeQuestionId) (*model.ThemeQuestion, error) {
+func (s *themeQuestionMemoryStore) Retrieve(ctx context.Context, _ *sql.Tx, id model.ThemeQuestionId) *model.ThemeQuestion {
 	s.themeQuestionsLock.Lock()
 	defer s.themeQuestionsLock.Unlock()
 
 	themeQuestion, found := s.themeQuestions[id]
 	if !found {
-		return nil, model.ErrThemeQuestionNotFound
+		return nil
 	}
-	return themeQuestion.Copy(), nil
+	return themeQuestion.Copy()
 }
 
-func (s *themeQuestionMemoryStore) Update(ctx context.Context, themeQuestion *model.ThemeQuestion) (*model.ThemeQuestion, error) {
+func (s *themeQuestionMemoryStore) Update(ctx context.Context, _ *sql.Tx, themeQuestion *model.ThemeQuestion) *model.ThemeQuestion {
 	s.themeQuestionsLock.Lock()
 	defer s.themeQuestionsLock.Unlock()
 
 	_, found := s.themeQuestions[themeQuestion.Id]
 	if !found {
-		return nil, model.ErrThemeQuestionNotFound
+		panic(model.ErrThemeQuestionNotFound)
 	}
 	s.themeQuestions[themeQuestion.Id] = themeQuestion.Copy()
-	return s.themeQuestions[themeQuestion.Id].Copy(), nil
+	return s.themeQuestions[themeQuestion.Id].Copy()
 }
 
-func (s *themeQuestionMemoryStore) Delete(ctx context.Context, filter *model.ThemeQuestionFilter) error {
+func (s *themeQuestionMemoryStore) Delete(ctx context.Context, _ *sql.Tx, filter *model.ThemeQuestionFilter) {
 	s.themeQuestionsLock.Lock()
 	defer s.themeQuestionsLock.Unlock()
 
@@ -67,10 +68,9 @@ func (s *themeQuestionMemoryStore) Delete(ctx context.Context, filter *model.The
 			delete(s.themeQuestions, id)
 		}
 	}
-	return nil
 }
 
-func (s *themeQuestionMemoryStore) List(ctx context.Context, filter *model.ThemeQuestionFilter) ([]*model.ThemeQuestion, error) {
+func (s *themeQuestionMemoryStore) List(ctx context.Context, _ *sql.Tx, filter *model.ThemeQuestionFilter) []*model.ThemeQuestion {
 	s.themeQuestionsLock.Lock()
 	defer s.themeQuestionsLock.Unlock()
 
@@ -81,10 +81,10 @@ func (s *themeQuestionMemoryStore) List(ctx context.Context, filter *model.Theme
 		}
 	}
 
-	return questions, nil
+	return questions
 }
 
-func (s *themeQuestionMemoryStore) CountByTheme(ctx context.Context) (map[model.ThemeId]int, error) {
+func (s *themeQuestionMemoryStore) CountByTheme(ctx context.Context, _ *sql.Tx) map[model.ThemeId]int {
 	s.themeQuestionsLock.Lock()
 	defer s.themeQuestionsLock.Unlock()
 
@@ -93,5 +93,5 @@ func (s *themeQuestionMemoryStore) CountByTheme(ctx context.Context) (map[model.
 		count[question.ThemeId]++
 	}
 
-	return count, nil
+	return count
 }

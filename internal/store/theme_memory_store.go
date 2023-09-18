@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"database/sql"
 	"sync"
 
 	"github.com/gre-ory/amnezic-go/internal/model"
@@ -25,40 +26,40 @@ var (
 	NextThemeId = 0
 )
 
-func (s *themeMemoryStore) Create(ctx context.Context, theme *model.Theme) (*model.Theme, error) {
+func (s *themeMemoryStore) Create(ctx context.Context, _ *sql.Tx, theme *model.Theme) *model.Theme {
 	s.themesLock.Lock()
 	defer s.themesLock.Unlock()
 
 	NextThemeId++
 	theme.Id = model.ThemeId(NextThemeId)
 	s.themes[theme.Id] = theme.Copy()
-	return s.themes[theme.Id].Copy(), nil
+	return s.themes[theme.Id].Copy()
 }
 
-func (s *themeMemoryStore) Retrieve(ctx context.Context, id model.ThemeId) (*model.Theme, error) {
+func (s *themeMemoryStore) Retrieve(ctx context.Context, _ *sql.Tx, id model.ThemeId) *model.Theme {
 	s.themesLock.Lock()
 	defer s.themesLock.Unlock()
 
 	theme, found := s.themes[id]
 	if !found {
-		return nil, model.ErrThemeNotFound
+		return nil
 	}
-	return theme.Copy(), nil
+	return theme.Copy()
 }
 
-func (s *themeMemoryStore) Update(ctx context.Context, theme *model.Theme) (*model.Theme, error) {
+func (s *themeMemoryStore) Update(ctx context.Context, _ *sql.Tx, theme *model.Theme) *model.Theme {
 	s.themesLock.Lock()
 	defer s.themesLock.Unlock()
 
 	_, found := s.themes[theme.Id]
 	if !found {
-		return nil, model.ErrThemeNotFound
+		panic(model.ErrThemeNotFound)
 	}
 	s.themes[theme.Id] = theme.Copy()
-	return s.themes[theme.Id].Copy(), nil
+	return s.themes[theme.Id].Copy()
 }
 
-func (s *themeMemoryStore) Delete(ctx context.Context, filter *model.ThemeFilter) error {
+func (s *themeMemoryStore) Delete(ctx context.Context, _ *sql.Tx, filter *model.ThemeFilter) {
 	s.themesLock.Lock()
 	defer s.themesLock.Unlock()
 
@@ -67,11 +68,9 @@ func (s *themeMemoryStore) Delete(ctx context.Context, filter *model.ThemeFilter
 			delete(s.themes, id)
 		}
 	}
-
-	return nil
 }
 
-func (s *themeMemoryStore) List(ctx context.Context, filter *model.ThemeFilter) ([]*model.Theme, error) {
+func (s *themeMemoryStore) List(ctx context.Context, _ *sql.Tx, filter *model.ThemeFilter) []*model.Theme {
 	s.themesLock.Lock()
 	defer s.themesLock.Unlock()
 
@@ -82,5 +81,5 @@ func (s *themeMemoryStore) List(ctx context.Context, filter *model.ThemeFilter) 
 		}
 	}
 
-	return themes, nil
+	return themes
 }

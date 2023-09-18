@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"math/rand"
@@ -45,17 +46,17 @@ type gameQuestionLegacyMusicStore struct {
 	genres           map[int64]*JsonLegacyGenre
 }
 
-func (s *gameQuestionLegacyMusicStore) SelectRandomQuestions(ctx context.Context, settings model.GameSettings) ([]*model.GameQuestion, error) {
+func (s *gameQuestionLegacyMusicStore) SelectRandomQuestions(ctx context.Context, _ *sql.Tx, settings model.GameSettings) []*model.GameQuestion {
 
 	//
 	// validate
 	//
 
 	if settings.NbQuestion <= 0 {
-		return nil, fmt.Errorf("invalid number of question")
+		panic(model.ErrInvalidNumberOfQuestion)
 	}
 	if settings.NbAnswer <= 0 {
-		return nil, fmt.Errorf("invalid number of answer")
+		panic(model.ErrInvalidNumberOfAnswer)
 	}
 
 	//
@@ -93,7 +94,7 @@ func (s *gameQuestionLegacyMusicStore) SelectRandomQuestions(ctx context.Context
 		questions = append(questions, s.toQuestion(ctx, genre, media, settings.NbAnswer))
 	}
 
-	return questions, nil
+	return questions
 }
 
 func (s *gameQuestionLegacyMusicStore) toQuestion(ctx context.Context, genre *JsonLegacyGenre, media *JsonLegacyMedia, nbAnswer int) *model.GameQuestion {

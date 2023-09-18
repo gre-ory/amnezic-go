@@ -161,9 +161,9 @@ func (s *BackendServer) Run(ctx context.Context) {
 	// albumStore := store.NewMusicAlbumMemoryStore()
 	// artistStore := store.NewMusicArtistMemoryStore()
 
-	musicStore := store.NewMusicStore(s.logger, db)
-	albumStore := store.NewMusicAlbumStore(s.logger, db)
-	artistStore := store.NewMusicArtistStore(s.logger, db)
+	musicStore := store.NewMusicStore(s.logger)
+	albumStore := store.NewMusicAlbumStore(s.logger)
+	artistStore := store.NewMusicArtistStore(s.logger)
 
 	themeStore := store.NewThemeMemoryStore()
 	themeQuestionStore := store.NewThemeQuestionMemoryStore()
@@ -178,9 +178,9 @@ func (s *BackendServer) Run(ctx context.Context) {
 	// service
 	//
 
-	gameService := service.NewGameService(s.logger, gameStore, gameQuestionStore)
-	musicService := service.NewMusicService(s.logger, deezerClient, musicStore, albumStore, artistStore)
-	themeService := service.NewThemeService(s.logger, themeStore, themeQuestionStore, musicStore)
+	gameService := service.NewGameService(s.logger, db, gameStore, gameQuestionStore)
+	musicService := service.NewMusicService(s.logger, deezerClient, db, musicStore, albumStore, artistStore)
+	themeService := service.NewThemeService(s.logger, db, themeStore, themeQuestionStore, musicStore)
 
 	//
 	// api

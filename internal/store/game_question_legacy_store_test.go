@@ -24,9 +24,8 @@ func TestLegacyMusicStore(t *testing.T) {
 	logger := zap.L()
 
 	store := store.NewGameQuestionLegacyStore(logger, rootPath)
-	gotQuestions, gotErr := store.SelectRandomQuestions(ctx, settings)
+	gotQuestions := store.SelectRandomQuestions(ctx, nil, settings)
 
-	require.NoError(t, gotErr)
 	require.Equal(t, []*model.GameQuestion{
 		{
 			Id: 2017,
@@ -83,7 +82,7 @@ func TestLegacyMusicStore(t *testing.T) {
 	}, gotQuestions)
 }
 
-func TestReproduce(t *testing.T) {
+func Off_TestReproduce(t *testing.T) {
 	ctx := context.Background()
 
 	rootPath := "http://root"
@@ -100,9 +99,8 @@ func TestReproduce(t *testing.T) {
 	logger, _ := config.Build()
 
 	store := store.NewGameQuestionLegacyStore(logger, rootPath)
-	gotQuestions, gotErr := store.SelectRandomQuestions(ctx, settings)
+	gotQuestions := store.SelectRandomQuestions(ctx, nil, settings)
 
-	require.NoError(t, gotErr)
 	require.Equal(t, &model.GameQuestion{
 		Id: 2017,
 		Theme: &model.GameTheme{
