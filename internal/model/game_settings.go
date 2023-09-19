@@ -1,5 +1,10 @@
 package model
 
+import (
+	"github.com/gre-ory/amnezic-go/internal/util"
+	"go.uber.org/zap/zapcore"
+)
+
 // //////////////////////////////////////////////////
 // game settings
 
@@ -10,6 +15,18 @@ type GameSettings struct {
 	NbPlayer   int
 	Sources    []Source
 }
+
+func (o *GameSettings) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	enc.AddInt64("seed", o.Seed)
+	enc.AddInt("nb-question", o.NbQuestion)
+	enc.AddInt("nb-answer", o.NbAnswer)
+	enc.AddInt("nb-player", o.NbPlayer)
+	enc.AddString("sources", util.Join(o.Sources, Source.String))
+	return nil
+}
+
+// //////////////////////////////////////////////////
+// validate
 
 const (
 	MinNbPlayer = 2

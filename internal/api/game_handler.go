@@ -4,8 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"strconv"
-	"strings"
 	"time"
 
 	"github.com/gre-ory/amnezic-go/internal/model"
@@ -41,41 +39,6 @@ func (h *gameHandler) RegisterRoutes(router *httprouter.Router) {
 }
 
 // //////////////////////////////////////////////////
-// decode
-
-func (h *gameHandler) extractStringParameter(req *http.Request, name string) string {
-	return strings.Trim(req.FormValue(name), " ")
-}
-
-func (h *gameHandler) extractStringsParameter(req *http.Request, name string) []string {
-	strValue := h.extractStringParameter(req, name)
-	return strings.Split(strValue, ",")
-}
-
-func (h *gameHandler) extractBoolParameter(req *http.Request, name string) bool {
-	strValue := h.extractStringParameter(req, name)
-	strValue = strings.ToLower(strValue)
-	return strValue == "true" || strValue == "1"
-}
-
-func (h *gameHandler) extractIntParameter(req *http.Request, name string) int {
-	strValue := h.extractStringParameter(req, name)
-	if value, err := strconv.Atoi(strValue); err == nil {
-		return value
-	}
-	return 0
-}
-
-func (h *gameHandler) extractGameIdFromPath(req *http.Request) (model.GameId, error) {
-	params := httprouter.ParamsFromContext(req.Context())
-	strValue := params.ByName("game_id")
-	if value, err := strconv.ParseInt(strValue, 10, 64); err == nil {
-		return model.GameId(value), nil
-	}
-	return 0, model.ErrInvalidGameId
-}
-
-// //////////////////////////////////////////////////
 // create
 
 func (h *gameHandler) handleCreateGame(resp http.ResponseWriter, req *http.Request) {
@@ -86,63 +49,70 @@ func (h *gameHandler) handleCreateGame(resp http.ResponseWriter, req *http.Reque
 	var game *model.Game
 	var err error
 
-	//
-	// decode request
-	//
+	switch {
+	default:
 
-	settings = model.GameSettings{
-		Seed:       time.Now().UnixMilli(),
-		NbQuestion: h.extractIntParameter(req, "nb_question"),
-		NbAnswer:   h.extractIntParameter(req, "nb_answer"),
-		NbPlayer:   h.extractIntParameter(req, "nb_player"),
-		Sources: util.Filter(
-			util.Convert(
-				h.extractStringsParameter(req, "sources"),
-				model.ToSource,
+		//
+		// decode request
+		//
+
+		settings = model.GameSettings{
+			Seed:       time.Now().UnixMilli(),
+			NbQuestion: toInt(extractParameter(req, "nb_question")),
+			NbAnswer:   toInt(extractParameter(req, "nb_answer")),
+			NbPlayer:   toInt(extractParameter(req, "nb_player")),
+			Sources: util.Filter(
+				util.Convert(
+					toStrings(extractParameter(req, "sources")),
+					model.ToSource,
+				),
+				func(s model.Source) bool { return s != "" },
 			),
-			func(s model.Source) bool { return s != "" },
-		),
-	}
-	// CLEAN
-	if len(settings.Sources) == 0 {
-		h.logger.Warn("[api] missing sources >>> FALLBACK to legacy")
-		settings.Sources = append(settings.Sources, model.Source_Legacy)
-	}
+		}
+		// CLEAN
+		if len(settings.Sources) == 0 {
+			h.logger.Warn("[api] missing sources >>> FALLBACK to legacy")
+			settings.Sources = append(settings.Sources, model.Source_Legacy)
+		}
 
-	err = settings.Validate()
-	if err != nil {
-		goto encode_error
+		err = settings.Validate()
+		if err != nil {
+			break
+		}
+		h.logger.Info(fmt.Sprintf("[api] create game with %d question(s), %d answer(s), %d player(s) and %d sources: %#v", settings.NbQuestion, settings.NbAnswer, settings.NbPlayer, len(settings.Sources), settings.Sources))
+
+		//
+		// execute
+		//
+
+		game, err = h.service.CreateGame(ctx, settings)
+		if err != nil {
+			break
+		}
+		if game == nil {
+			err = model.ErrGameNotFound
+			break
+		}
+
+		//
+		// encode success
+		//
+
+		resp.Header().Set("Content-Type", "application/json")
+		resp.WriteHeader(http.StatusOK)
+		err = json.NewEncoder(resp).Encode(toJsonGameResponse(game))
+		if err != nil {
+			break
+		}
+		return
 	}
-	h.logger.Info(fmt.Sprintf("[api] create game with %d question(s), %d answer(s), %d player(s) and %d sources: %#v", settings.NbQuestion, settings.NbAnswer, settings.NbPlayer, len(settings.Sources), settings.Sources))
 
 	//
-	// execute
+	// encode error
 	//
 
-	game, err = h.service.CreateGame(ctx, settings)
-	if err != nil {
-		goto encode_error
-	}
-	if game == nil {
-		err = model.ErrGameNotFound
-		goto encode_error
-	}
-
-	//
-	// encode response
-	//
-
-	resp.Header().Set("Content-Type", "application/json")
-	resp.WriteHeader(http.StatusOK)
-	err = json.NewEncoder(resp).Encode(h.toJsonGame(game))
-	if err != nil {
-		goto encode_error
-	}
-	return
-
-encode_error:
 	// TODO status code
-	h.encodeError(resp, http.StatusBadRequest, err.Error())
+	encodeError(resp, http.StatusBadRequest, err.Error())
 }
 
 // //////////////////////////////////////////////////
@@ -156,44 +126,52 @@ func (h *gameHandler) handleRetrieveGame(resp http.ResponseWriter, req *http.Req
 	var game *model.Game
 	var err error
 
-	//
-	// decode request
-	//
+	switch {
+	default:
 
-	gameId, err = h.extractGameIdFromPath(req)
-	if err != nil {
-		goto encode_error
+		//
+		// decode request
+		//
+
+		gameId = model.GameId(toInt64(extractPathParameter(req, "game_id")))
+		if gameId == 0 {
+			err = model.ErrInvalidGameId
+			break
+		}
+		h.logger.Info(fmt.Sprintf("[api] retrieve game %d", gameId))
+
+		//
+		// execute
+		//
+
+		game, err = h.service.RetrieveGame(ctx, gameId)
+		if err != nil {
+			break
+		}
+		if game == nil {
+			err = model.ErrGameNotFound
+			break
+		}
+
+		//
+		// encode success
+		//
+
+		resp.Header().Set("Content-Type", "application/json")
+		resp.WriteHeader(http.StatusOK)
+		err = json.NewEncoder(resp).Encode(toJsonGameResponse(game))
+		if err != nil {
+			break
+		}
+		return
 	}
-	h.logger.Info(fmt.Sprintf("[api] retrieve game %d", gameId))
 
 	//
-	// execute
+	// encode error
 	//
 
-	game, err = h.service.RetrieveGame(ctx, gameId)
-	if err != nil {
-		goto encode_error
-	}
-	if game == nil {
-		err = model.ErrGameNotFound
-		goto encode_error
-	}
-
-	//
-	// encode response
-	//
-
-	resp.Header().Set("Content-Type", "application/json")
-	resp.WriteHeader(http.StatusOK)
-	err = json.NewEncoder(resp).Encode(h.toJsonGame(game))
-	if err != nil {
-		goto encode_error
-	}
-	return
-
-encode_error:
 	// TODO status code
-	h.encodeError(resp, http.StatusBadRequest, err.Error())
+	encodeError(resp, http.StatusBadRequest, err.Error())
 }
 
 // //////////////////////////////////////////////////
@@ -207,41 +185,49 @@ func (h *gameHandler) handleUpdateGame(resp http.ResponseWriter, req *http.Reque
 	var game *model.Game
 	var err error
 
-	//
-	// decode request
-	//
+	switch {
+	default:
 
-	gameId, err = h.extractGameIdFromPath(req)
-	if err != nil {
-		goto encode_error
+		//
+		// decode request
+		//
+
+		gameId = model.GameId(toInt64(extractPathParameter(req, "game_id")))
+		if gameId == 0 {
+			err = model.ErrInvalidGameId
+			break
+		}
+		h.logger.Info(fmt.Sprintf("[api] update game %d", gameId))
+
+		//
+		// execute
+		//
+
+		// TODO
+		err = model.ErrNotImplemented
+		if err != nil {
+			break
+		}
+
+		//
+		// encode success
+		//
+
+		resp.Header().Set("Content-Type", "application/json")
+		resp.WriteHeader(http.StatusOK)
+		err = json.NewEncoder(resp).Encode(toJsonGameResponse(game))
+		if err != nil {
+			break
+		}
+		return
 	}
-	h.logger.Info(fmt.Sprintf("[api] update game %d", gameId))
 
 	//
-	// execute
+	// encode error
 	//
 
-	// TODO
-	err = model.ErrNotImplemented
-	if err != nil {
-		goto encode_error
-	}
-
-	//
-	// encode response
-	//
-
-	resp.Header().Set("Content-Type", "application/json")
-	resp.WriteHeader(http.StatusOK)
-	err = json.NewEncoder(resp).Encode(h.toJsonGame(game))
-	if err != nil {
-		goto encode_error
-	}
-	return
-
-encode_error:
 	// TODO status code
-	h.encodeError(resp, http.StatusBadRequest, err.Error())
+	encodeError(resp, http.StatusBadRequest, err.Error())
 }
 
 // //////////////////////////////////////////////////
@@ -254,64 +240,70 @@ func (h *gameHandler) handleDeleteGame(resp http.ResponseWriter, req *http.Reque
 	var gameId model.GameId
 	var err error
 
-	//
-	// decode request
-	//
+	switch {
+	default:
 
-	gameId, err = h.extractGameIdFromPath(req)
-	if err != nil {
-		goto encode_error
+		//
+		// decode request
+		//
+
+		gameId = model.GameId(toInt64(extractPathParameter(req, "game_id")))
+		if gameId == 0 {
+			err = model.ErrInvalidGameId
+			break
+		}
+		h.logger.Info(fmt.Sprintf("[api] delete game %d", gameId))
+
+		//
+		// execute
+		//
+
+		err = h.service.DeleteGame(ctx, gameId)
+		if err != nil {
+			break
+		}
+
+		//
+		// encode success
+		//
+
+		resp.Header().Set("Content-Type", "application/json")
+		resp.WriteHeader(http.StatusOK)
+		err = json.NewEncoder(resp).Encode(toJsonSuccess())
+		if err != nil {
+			break
+		}
+		return
 	}
-	h.logger.Info(fmt.Sprintf("[api] delete game %d", gameId))
 
 	//
-	// execute
+	// encode error
 	//
 
-	err = h.service.DeleteGame(ctx, gameId)
-	if err != nil {
-		goto encode_error
-	}
-
-	//
-	// encode response
-	//
-
-	resp.Header().Set("Content-Type", "application/json")
-	resp.WriteHeader(http.StatusOK)
-	err = json.NewEncoder(resp).Encode(h.toJsonSuccess())
-	if err != nil {
-		goto encode_error
-	}
-	return
-
-encode_error:
 	// TODO status code
-	h.encodeError(resp, http.StatusBadRequest, err.Error())
+	encodeError(resp, http.StatusBadRequest, err.Error())
 }
 
 // //////////////////////////////////////////////////
 // encode
 
-func (h *gameHandler) toJsonSuccess() *JsonGameResponse {
+func toJsonGameResponse(game *model.Game) *JsonGameResponse {
 	return &JsonGameResponse{
 		Success: true,
+		Game:    toJsonGame(game),
 	}
 }
 
-func (h *gameHandler) toJsonGame(game *model.Game) *JsonGameResponse {
-	return &JsonGameResponse{
-		Success: true,
-		Game: &JsonGame{
-			Id:        int64(game.Id),
-			Settings:  h.toJsonGameSettings(game.Settings),
-			Players:   util.Convert(game.Players, h.toJsonPlayer),
-			Questions: util.Convert(game.Questions, h.toJsonQuestion),
-		},
+func toJsonGame(game *model.Game) *JsonGame {
+	return &JsonGame{
+		Id:        int64(game.Id),
+		Settings:  toJsonGameSettings(game.Settings),
+		Players:   util.Convert(game.Players, toJsonGamePlayer),
+		Questions: util.Convert(game.Questions, toJsonGameQuestion),
 	}
 }
 
-func (h *gameHandler) toJsonGameSettings(settings *model.GameSettings) *JsonGameSettings {
+func toJsonGameSettings(settings *model.GameSettings) *JsonGameSettings {
 	return &JsonGameSettings{
 		Seed:       settings.Seed,
 		NbQuestion: settings.NbQuestion,
@@ -321,8 +313,8 @@ func (h *gameHandler) toJsonGameSettings(settings *model.GameSettings) *JsonGame
 	}
 }
 
-func (h *gameHandler) toJsonPlayer(player *model.Player) *JsonPlayer {
-	return &JsonPlayer{
+func toJsonGamePlayer(player *model.GamePlayer) *JsonGamePlayer {
+	return &JsonGamePlayer{
 		Id:     int64(player.Id),
 		Name:   player.Name,
 		Active: player.Active,
@@ -330,68 +322,24 @@ func (h *gameHandler) toJsonPlayer(player *model.Player) *JsonPlayer {
 	}
 }
 
-func (h *gameHandler) toJsonQuestion(question *model.Question) *JsonQuestion {
-	return &JsonQuestion{
+func toJsonGameQuestion(question *model.GameQuestion) *JsonGameQuestion {
+	return &JsonGameQuestion{
 		Id:      int64(question.Id),
-		Theme:   h.toJsonTheme(question.Theme),
-		Music:   h.toJsonMusic(question.Music),
-		Answers: util.Convert(question.Answers, h.toJsonAnswer),
+		Theme:   toJsonGameTheme(question.Theme),
+		Music:   toJsonMusic(question.Music),
+		Answers: util.Convert(question.Answers, toJsonGameAnswer),
 	}
 }
 
-func (h *gameHandler) toJsonTheme(theme model.Theme) JsonTheme {
-	return JsonTheme{
+func toJsonGameTheme(theme *model.GameTheme) *JsonGameTheme {
+	return &JsonGameTheme{
 		Id:    theme.Id,
 		Title: theme.Title,
 	}
 }
 
-func (h *gameHandler) toJsonMusic(music model.Music) JsonMusic {
-	return JsonMusic{
-		Id:     music.Id,
-		Name:   music.Name,
-		Mp3Url: music.Mp3Url,
-		Artist: h.toJsonArtist(music.Artist),
-		Album:  h.toJsonAlbum(music.Album),
-		Genre:  h.toJsonGenre(music.Genre),
-	}
-}
-
-func (h *gameHandler) toJsonArtist(artist *model.Artist) *JsonArtist {
-	if artist == nil {
-		return nil
-	}
-	return &JsonArtist{
-		Id:     artist.Id,
-		Name:   artist.Name,
-		ImgUrl: artist.ImgUrl,
-	}
-}
-
-func (h *gameHandler) toJsonAlbum(album *model.Album) *JsonAlbum {
-	if album == nil {
-		return nil
-	}
-	return &JsonAlbum{
-		Id:     album.Id,
-		Name:   album.Name,
-		ImgUrl: album.ImgUrl,
-	}
-}
-
-func (h *gameHandler) toJsonGenre(genre *model.Genre) *JsonGenre {
-	if genre == nil {
-		return nil
-	}
-	return &JsonGenre{
-		Id:     genre.Id,
-		Name:   genre.Name,
-		ImgUrl: genre.ImgUrl,
-	}
-}
-
-func (h *gameHandler) toJsonAnswer(answer *model.Answer) JsonAnswer {
-	return JsonAnswer{
+func toJsonGameAnswer(answer *model.GameAnswer) *JsonGameAnswer {
+	return &JsonGameAnswer{
 		Id:      int64(answer.Id),
 		Text:    answer.Text,
 		Hint:    answer.Hint,
@@ -400,16 +348,15 @@ func (h *gameHandler) toJsonAnswer(answer *model.Answer) JsonAnswer {
 }
 
 type JsonGameResponse struct {
-	Success bool       `json:"success,omitempty"`
-	Error   *JsonError `json:"error,omitempty"`
-	Game    *JsonGame  `json:"game,omitempty"`
+	Success bool      `json:"success,omitempty"`
+	Game    *JsonGame `json:"game,omitempty"`
 }
 
 type JsonGame struct {
-	Id        int64             `json:"id,omitempty"`
-	Settings  *JsonGameSettings `json:"settings,omitempty"`
-	Players   []*JsonPlayer     `json:"players,omitempty"`
-	Questions []*JsonQuestion   `json:"questions,omitempty"`
+	Id        int64               `json:"id,omitempty"`
+	Settings  *JsonGameSettings   `json:"settings,omitempty"`
+	Players   []*JsonGamePlayer   `json:"players,omitempty"`
+	Questions []*JsonGameQuestion `json:"questions,omitempty"`
 }
 
 type JsonGameSettings struct {
@@ -420,81 +367,28 @@ type JsonGameSettings struct {
 	Sources    []string `json:"sources,omitempty"`
 }
 
-type JsonPlayer struct {
+type JsonGamePlayer struct {
 	Id     int64  `json:"id,omitempty"`
 	Name   string `json:"name,omitempty"`
 	Active bool   `json:"active,omitempty"`
 	Score  int    `json:"score,omitempty"`
 }
 
-type JsonQuestion struct {
-	Id      int64        `json:"id"`
-	Theme   JsonTheme    `json:"theme"`
-	Music   JsonMusic    `json:"music"`
-	Answers []JsonAnswer `json:"answers,omitempty"`
+type JsonGameQuestion struct {
+	Id      int64             `json:"id"`
+	Theme   *JsonGameTheme    `json:"theme"`
+	Music   *JsonMusic        `json:"music"`
+	Answers []*JsonGameAnswer `json:"answers,omitempty"`
 }
 
-type JsonTheme struct {
+type JsonGameTheme struct {
 	Id    int64  `json:"id,omitempty"`
 	Title string `json:"title,omitempty"`
 }
 
-type JsonMusic struct {
-	Id     int64       `json:"id,omitempty"`
-	Name   string      `json:"name,omitempty"`
-	Mp3Url string      `json:"mp3Url,omitempty"`
-	Artist *JsonArtist `json:"artist,omitempty"`
-	Album  *JsonAlbum  `json:"album,omitempty"`
-	Genre  *JsonGenre  `json:"genre,omitempty"`
-}
-
-type JsonArtist struct {
-	Id     int64  `json:"id,omitempty"`
-	Name   string `json:"name,omitempty"`
-	ImgUrl string `json:"imgUrl,omitempty"`
-}
-
-type JsonAlbum struct {
-	Id     int64  `json:"id,omitempty"`
-	Name   string `json:"name,omitempty"`
-	ImgUrl string `json:"imgUrl,omitempty"`
-}
-
-type JsonGenre struct {
-	Id     int64  `json:"id,omitempty"`
-	Name   string `json:"name,omitempty"`
-	ImgUrl string `json:"imgUrl,omitempty"`
-}
-
-type JsonAnswer struct {
+type JsonGameAnswer struct {
 	Id      int64  `json:"id"`
 	Text    string `json:"text"`
 	Hint    string `json:"hint,omitempty"`
 	Correct bool   `json:"correct,omitempty"`
-}
-
-// //////////////////////////////////////////////////
-// encode error
-
-func (h *gameHandler) encodeError(resp http.ResponseWriter, statusCode int, message string) {
-	resp.Header().Set("Content-Type", "application/json")
-	resp.WriteHeader(statusCode)
-
-	// try to encode error >>> no need to check error at encoding
-	json.NewEncoder(resp).Encode(h.toJsonError(statusCode, message))
-}
-
-func (h *gameHandler) toJsonError(code int, message string) *JsonGameResponse {
-	return &JsonGameResponse{
-		Success: false,
-		Error: &JsonError{
-			Code:    code,
-			Message: message,
-		},
-	}
-}
-
-type JsonError struct {
-	Code    int    `json:"code,omitempty"`
-	Message string `json:"message,omitempty"`
 }

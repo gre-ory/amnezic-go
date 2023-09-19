@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"database/sql"
 	"sync"
 
 	"github.com/gre-ory/amnezic-go/internal/model"
@@ -21,52 +22,55 @@ type gameMemoryStore struct {
 	gamesLock sync.RWMutex
 }
 
-func (s *gameMemoryStore) Create(ctx context.Context, game *model.Game) (*model.Game, error) {
+var (
+	NextGameId = 0
+)
+
+func (s *gameMemoryStore) Create(ctx context.Context, _ *sql.Tx, game *model.Game) *model.Game {
 	s.gamesLock.Lock()
 	defer s.gamesLock.Unlock()
 
-	gameNumber := len(s.games) + 1
-	game.Id = model.NewGameId(gameNumber)
+	NextGameId++
+	game.Id = model.NewGameId(NextGameId)
 	game.Version = 1
 	s.games[game.Id] = game
-	return s.games[game.Id], nil
+	return s.games[game.Id]
 }
 
-func (s *gameMemoryStore) Retrieve(ctx context.Context, id model.GameId) (*model.Game, error) {
+func (s *gameMemoryStore) Retrieve(ctx context.Context, _ *sql.Tx, id model.GameId) *model.Game {
 	s.gamesLock.Lock()
 	defer s.gamesLock.Unlock()
 
 	game, found := s.games[id]
 	if !found {
-		return nil, model.ErrGameNotFound
+		panic(model.ErrGameNotFound)
 	}
-	return game, nil
+	return game
 }
 
-func (s *gameMemoryStore) Update(ctx context.Context, game *model.Game) (*model.Game, error) {
+func (s *gameMemoryStore) Update(ctx context.Context, _ *sql.Tx, game *model.Game) *model.Game {
 	s.gamesLock.Lock()
 	defer s.gamesLock.Unlock()
 
 	orig, found := s.games[game.Id]
 	if !found {
-		return nil, model.ErrGameNotFound
+		panic(model.ErrGameNotFound)
 	}
 	if orig.Version != game.Version {
-		return nil, model.ErrConcurrentUpdate
+		panic(model.ErrConcurrentUpdate)
 	}
 	game.Version++
 	s.games[game.Id] = game
-	return s.games[game.Id], nil
+	return s.games[game.Id]
 }
 
-func (s *gameMemoryStore) Delete(ctx context.Context, id model.GameId) error {
+func (s *gameMemoryStore) Delete(ctx context.Context, _ *sql.Tx, id model.GameId) {
 	s.gamesLock.Lock()
 	defer s.gamesLock.Unlock()
 
 	_, found := s.games[id]
 	if !found {
-		return model.ErrGameNotFound
+		panic(model.ErrGameNotFound)
 	}
 	delete(s.games, id)
-	return nil
 }

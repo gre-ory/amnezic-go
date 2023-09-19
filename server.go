@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"embed"
 	"fmt"
 	"io/fs"
@@ -12,11 +13,14 @@ import (
 	"sync"
 
 	"github.com/gre-ory/amnezic-go/internal/api"
+	"github.com/gre-ory/amnezic-go/internal/client"
 	"github.com/gre-ory/amnezic-go/internal/service"
 	"github.com/gre-ory/amnezic-go/internal/store"
 	"github.com/gre-ory/amnezic-go/internal/util"
 	"github.com/julienschmidt/httprouter"
 	"go.uber.org/zap"
+
+	_ "github.com/mattn/go-sqlite3" // Import go-sqlite3 library
 )
 
 // //////////////////////////////////////////////////
@@ -147,24 +151,44 @@ func (s *BackendServer) Run(ctx context.Context) {
 	// store
 	//
 
+	db, _ := sql.Open("sqlite3", "./db/amnezic.db")
+	defer db.Close()
+
 	gameStore := store.NewGameMemoryStore()
-	musicStore := store.NewLegacyMusicStore(s.logger, store.RootPath_FreeDotFr)
+	gameQuestionStore := store.NewGameQuestionLegacyStore(s.logger, store.RootPath_FreeDotFr)
+
+	// musicStore := store.NewMusicMemoryStore()
+	// albumStore := store.NewMusicAlbumMemoryStore()
+	// artistStore := store.NewMusicArtistMemoryStore()
+
+	musicStore := store.NewMusicStore(s.logger)
+	albumStore := store.NewMusicAlbumStore(s.logger)
+	artistStore := store.NewMusicArtistStore(s.logger)
+
+	themeStore := store.NewThemeMemoryStore()
+	themeQuestionStore := store.NewThemeQuestionMemoryStore()
 
 	//
 	// client
 	//
 
+	deezerClient := client.NewDeezerClient(s.logger)
+
 	//
 	// service
 	//
 
-	gameService := service.NewGameService(s.logger, gameStore, musicStore)
+	gameService := service.NewGameService(s.logger, db, gameStore, gameQuestionStore)
+	musicService := service.NewMusicService(s.logger, deezerClient, db, musicStore, albumStore, artistStore)
+	themeService := service.NewThemeService(s.logger, db, themeStore, themeQuestionStore, musicStore)
 
 	//
 	// api
 	//
 
 	gameHandler := api.NewGamehandler(s.logger, gameService)
+	musicHandler := api.NewMusichandler(s.logger, musicService)
+	themeHandler := api.NewThemehandler(s.logger, themeService)
 
 	//
 	// router
@@ -172,6 +196,8 @@ func (s *BackendServer) Run(ctx context.Context) {
 
 	router := httprouter.New()
 	gameHandler.RegisterRoutes(router)
+	musicHandler.RegisterRoutes(router)
+	themeHandler.RegisterRoutes(router)
 
 	//
 	// server
@@ -270,9 +296,7 @@ func NewLogger() *zap.Logger {
 func WithRequestLogging(logger *zap.Logger) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			defer func() {
-				logger.Info(fmt.Sprintf("[DEBUG] %s %s - %s", r.Method, r.URL.Path, r.UserAgent()))
-			}()
+			logger.Info(fmt.Sprintf("[DEBUG] %s %s - %s", r.Method, r.URL.Path, r.UserAgent()))
 			next.ServeHTTP(w, r)
 		})
 	}
