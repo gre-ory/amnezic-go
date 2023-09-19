@@ -36,10 +36,10 @@ type musicArtistStore struct {
 // row
 
 type MusicArtistRow struct {
-	Id       int64
-	DeezerId int64
-	Name     string
-	ImgUrl   string
+	Id       int64  `sql:"id,auto-generated"`
+	DeezerId int64  `sql:"deezer_id"`
+	Name     string `sql:"name"`
+	ImgUrl   string `sql:"img_url"`
 }
 
 func (s *musicArtistStore) EncodeRow(obj *model.MusicArtist) *MusicArtistRow {

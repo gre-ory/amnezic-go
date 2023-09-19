@@ -310,8 +310,12 @@ func extractSqlColumns[R any](logger *zap.Logger) []sqlColumn {
 	for i := 0; i < n; i++ {
 		reflectField := reflectType.Field(i)
 		column := extractSqlColumn(i, reflectField)
-		logger.Info(fmt.Sprintf("[DEBUG] column: %#v", column))
-		columns = append(columns, column)
+		if column.Name == "" {
+			logger.Warn(fmt.Sprintf("[DEBUG] (-) invalid column: %#v", column))
+		} else {
+			logger.Info(fmt.Sprintf("[DEBUG] (+) column: %#v", column))
+			columns = append(columns, column)
+		}
 	}
 	return columns
 }
