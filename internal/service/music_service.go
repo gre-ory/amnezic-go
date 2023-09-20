@@ -73,6 +73,7 @@ func (s *musicService) AddDeezerMusic(ctx context.Context, deezerId model.Deezer
 	if err != nil {
 		return nil, err
 	}
+	s.logger.Info("[DEBUG] music... 1", zap.Object("music", music))
 
 	err = util.SqlTransaction(ctx, s.db, func(tx *sql.Tx) {
 
@@ -81,8 +82,9 @@ func (s *musicService) AddDeezerMusic(ctx context.Context, deezerId model.Deezer
 		//
 
 		s.logger.Info(fmt.Sprintf("[DEBUG] retrieve music from deezer id %d", deezerId))
-		music = s.musicStore.SearchByDeezerId(ctx, tx, deezerId)
-		if music != nil {
+		orig := s.musicStore.SearchByDeezerId(ctx, tx, deezerId)
+		if orig != nil {
+			music = orig
 
 			//
 			// retrieve album
@@ -109,7 +111,7 @@ func (s *musicService) AddDeezerMusic(ctx context.Context, deezerId model.Deezer
 		//
 		// create album ( if necessary )
 		//
-
+		s.logger.Info("[DEBUG] music... 2", zap.Object("music", music))
 		if music.Album != nil && music.Album.DeezerId != 0 {
 			s.logger.Info(fmt.Sprintf("[DEBUG] retrieve album from deezer id %d", music.Album.DeezerId))
 			album = s.albumStore.SearchByDeezerId(ctx, tx, music.Album.DeezerId)
@@ -125,9 +127,10 @@ func (s *musicService) AddDeezerMusic(ctx context.Context, deezerId model.Deezer
 		//
 
 		if music.Artist != nil && music.Artist.DeezerId != 0 {
+			s.logger.Info("[DEBUG] music... 2.a", zap.Object("music", music))
 			s.logger.Info(fmt.Sprintf("[DEBUG] retrieve artist from deezer id %d", music.Artist.DeezerId))
 			artist = s.artistStore.SearchByDeezerId(ctx, tx, music.Artist.DeezerId)
-			if artist != nil {
+			if artist == nil {
 				s.logger.Info(fmt.Sprintf("[DEBUG] create artist: %#v", music.Artist.Copy()))
 				artist = s.artistStore.Create(ctx, tx, music.Artist)
 			}
@@ -139,7 +142,9 @@ func (s *musicService) AddDeezerMusic(ctx context.Context, deezerId model.Deezer
 		//
 
 		s.logger.Info(fmt.Sprintf("[DEBUG] create music: %#v", music.Copy()))
+		s.logger.Info("[DEBUG] music... 3", zap.Object("music", music))
 		music = s.musicStore.Create(ctx, tx, music)
+		s.logger.Info("[DEBUG] music... 4", zap.Object("music", music))
 		music.Album = album
 		music.Artist = artist
 	})

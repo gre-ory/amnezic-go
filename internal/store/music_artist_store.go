@@ -100,5 +100,5 @@ func (s *musicArtistStore) Update(ctx context.Context, tx *sql.Tx, obj *model.Mu
 // delete
 
 func (s *musicArtistStore) Delete(ctx context.Context, tx *sql.Tx, id model.MusicArtistId) {
-	s.DeleteRow(ctx, tx, "WHERE id = %s", id)
+	s.DeleteRow(ctx, tx, "WHERE id = $1", id)
 }

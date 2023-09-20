@@ -253,7 +253,7 @@ func (t *sqlTable[Row]) DeleteRow(ctx context.Context, tx *sql.Tx, whereClause s
 	}
 
 	query := fmt.Sprintf(
-		"DELETE FROM %s %s LIMIT 1",
+		"DELETE FROM %s %s",
 		t.name,
 		whereClause,
 	)
