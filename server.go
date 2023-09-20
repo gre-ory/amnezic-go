@@ -94,6 +94,10 @@ func (s *FrontendServer) Run(ctx context.Context) {
 	//
 
 	address := os.Getenv("FRONTEND_ADDRESS")
+	if address == "" {
+		s.logger.Warn("missing FRONTEND_ADDRESS")
+		return
+	}
 
 	//
 	// file server
@@ -146,12 +150,22 @@ func (s *BackendServer) Run(ctx context.Context) {
 	//
 
 	address := os.Getenv("BACKEND_ADDRESS")
+	if address == "" {
+		s.logger.Warn("missing BACKEND_ADDRESS")
+		return
+	}
+
+	dataSource := os.Getenv("SQLITE_DATA_SOURCE")
+	if address == "" {
+		s.logger.Warn("missing SQLITE_DATA_SOURCE")
+		return
+	}
 
 	//
 	// store
 	//
 
-	db, _ := sql.Open("sqlite3", "./db/amnezic.db")
+	db, _ := sql.Open("sqlite3", dataSource)
 	defer db.Close()
 
 	gameStore := store.NewGameMemoryStore()
