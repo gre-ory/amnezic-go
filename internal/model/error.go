@@ -26,4 +26,5 @@ var (
 	ErrInvalidBody             = fmt.Errorf("invalid body")
 	ErrInvalidNumberOfQuestion = fmt.Errorf("invalid number of question")
 	ErrInvalidNumberOfAnswer   = fmt.Errorf("invalid number of answer")
+	ErrMusicUsed               = fmt.Errorf("music used")
 )

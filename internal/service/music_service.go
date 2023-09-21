@@ -22,24 +22,26 @@ type MusicService interface {
 	DeleteMusic(ctx context.Context, id model.MusicId) error
 }
 
-func NewMusicService(logger *zap.Logger, deezerClient client.DeezerClient, db *sql.DB, musicStore store.MusicStore, albumStore store.MusicAlbumStore, artistStore store.MusicArtistStore) MusicService {
+func NewMusicService(logger *zap.Logger, deezerClient client.DeezerClient, db *sql.DB, musicStore store.MusicStore, albumStore store.MusicAlbumStore, artistStore store.MusicArtistStore, themeQuestionStore store.ThemeQuestionStore) MusicService {
 	return &musicService{
-		logger:       logger,
-		deezerClient: deezerClient,
-		db:           db,
-		musicStore:   musicStore,
-		albumStore:   albumStore,
-		artistStore:  artistStore,
+		logger:             logger,
+		deezerClient:       deezerClient,
+		db:                 db,
+		musicStore:         musicStore,
+		albumStore:         albumStore,
+		artistStore:        artistStore,
+		themeQuestionStore: themeQuestionStore,
 	}
 }
 
 type musicService struct {
-	logger       *zap.Logger
-	deezerClient client.DeezerClient
-	db           *sql.DB
-	musicStore   store.MusicStore
-	albumStore   store.MusicAlbumStore
-	artistStore  store.MusicArtistStore
+	logger             *zap.Logger
+	deezerClient       client.DeezerClient
+	db                 *sql.DB
+	musicStore         store.MusicStore
+	albumStore         store.MusicAlbumStore
+	artistStore        store.MusicArtistStore
+	themeQuestionStore store.ThemeQuestionStore
 }
 
 // //////////////////////////////////////////////////
@@ -207,6 +209,14 @@ func (s *musicService) GetMusic(ctx context.Context, id model.MusicId) (*model.M
 func (s *musicService) DeleteMusic(ctx context.Context, id model.MusicId) error {
 
 	err := util.SqlTransaction(ctx, s.db, func(tx *sql.Tx) {
+
+		//
+		// check if music is used
+		//
+
+		if used := s.themeQuestionStore.IsMusicUsed(ctx, tx, id); used {
+			panic(model.ErrMusicUsed)
+		}
 
 		//
 		// delete music

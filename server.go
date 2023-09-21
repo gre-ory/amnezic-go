@@ -16,6 +16,8 @@ import (
 	"github.com/gre-ory/amnezic-go/internal/client"
 	"github.com/gre-ory/amnezic-go/internal/service"
 	"github.com/gre-ory/amnezic-go/internal/store"
+	"github.com/gre-ory/amnezic-go/internal/store/legacy"
+	"github.com/gre-ory/amnezic-go/internal/store/memory"
 	"github.com/gre-ory/amnezic-go/internal/util"
 	"github.com/julienschmidt/httprouter"
 	"go.uber.org/zap"
@@ -168,8 +170,8 @@ func (s *BackendServer) Run(ctx context.Context) {
 	db, _ := sql.Open("sqlite3", dataSource)
 	defer db.Close()
 
-	gameStore := store.NewGameMemoryStore()
-	gameQuestionStore := store.NewGameQuestionLegacyStore(s.logger, store.RootPath_FreeDotFr)
+	gameStore := memory.NewGameMemoryStore()
+	gameQuestionStore := legacy.NewGameQuestionLegacyStore(s.logger, legacy.RootPath_FreeDotFr)
 
 	// musicStore := store.NewMusicMemoryStore()
 	// albumStore := store.NewMusicAlbumMemoryStore()
@@ -179,8 +181,8 @@ func (s *BackendServer) Run(ctx context.Context) {
 	albumStore := store.NewMusicAlbumStore(s.logger)
 	artistStore := store.NewMusicArtistStore(s.logger)
 
-	themeStore := store.NewThemeMemoryStore()
-	themeQuestionStore := store.NewThemeQuestionMemoryStore()
+	themeStore := store.NewThemeStore(s.logger)
+	themeQuestionStore := store.NewThemeQuestionStore(s.logger)
 
 	//
 	// client
@@ -193,7 +195,7 @@ func (s *BackendServer) Run(ctx context.Context) {
 	//
 
 	gameService := service.NewGameService(s.logger, db, gameStore, gameQuestionStore)
-	musicService := service.NewMusicService(s.logger, deezerClient, db, musicStore, albumStore, artistStore)
+	musicService := service.NewMusicService(s.logger, deezerClient, db, musicStore, albumStore, artistStore, themeQuestionStore)
 	themeService := service.NewThemeService(s.logger, db, themeStore, themeQuestionStore, musicStore)
 
 	//
@@ -334,7 +336,7 @@ func AllowCORS(logger *zap.Logger) func(http.Handler) http.Handler {
 				w.Header().Set("Access-Control-Allow-Origin", origin)
 				w.Header().Set("Access-Control-Allow-Methods", "*")
 			} else {
-				logger.Warn(fmt.Sprintf("[COR] BLOCKED - Origin: %s", origin))
+				logger.Info(fmt.Sprintf("[COR] BLOCKED - Origin: %s", origin))
 			}
 			next.ServeHTTP(w, r)
 		})

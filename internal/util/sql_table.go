@@ -14,14 +14,16 @@ import (
 // sql table
 
 type SqlTable[Row any] interface {
+	ListRows(ctx context.Context, tx *sql.Tx, wc SqlWhereClause) []*Row
 	InsertRow(ctx context.Context, tx *sql.Tx, row *Row) *Row
-	SelectRow(ctx context.Context, tx *sql.Tx, whereClause string, whereClauseArgs ...any) (*Row, error)
-	ExistsRow(ctx context.Context, tx *sql.Tx, whereClause string, whereClauseArgs ...any) bool
-	UpdateRow(ctx context.Context, tx *sql.Tx, row *Row, whereClause string, whereClauseArgs ...any) *Row
-	DeleteRow(ctx context.Context, tx *sql.Tx, whereClause string, whereClauseArgs ...any) error
+	SelectRow(ctx context.Context, tx *sql.Tx, wc SqlWhereClause) (*Row, error)
+	ExistsRow(ctx context.Context, tx *sql.Tx, wc SqlWhereClause) bool
+	UpdateRow(ctx context.Context, tx *sql.Tx, row *Row, wc SqlWhereClause) *Row
+	DeleteRows(ctx context.Context, tx *sql.Tx, wc SqlWhereClause) int64
 }
 
 func NewSqlTable[Row any](logger *zap.Logger, name string, errNotFound error) *sqlTable[Row] {
+	logger = logger.With(zap.String("table", name))
 	return &sqlTable[Row]{
 		logger:      logger,
 		name:        name,
@@ -51,6 +53,45 @@ var (
 	ErrMissingSqlRow      = fmt.Errorf("missing sql row")
 	ErrMissingWhereClause = fmt.Errorf("missing where clause")
 )
+
+// //////////////////////////////////////////////////
+// list rows
+
+func (t *sqlTable[Row]) ListRows(ctx context.Context, tx *sql.Tx, wc SqlWhereClause) []*Row {
+
+	returningColumns := make([]string, 0, len(t.columns))
+
+	for _, column := range t.columns {
+		returningColumns = append(returningColumns, column.Name)
+	}
+
+	whereClause, whereClauseArgs := wc.Generate(0)
+
+	query := fmt.Sprintf(
+		"SELECT %s FROM %s %s",
+		strings.Join(returningColumns, ","),
+		t.name,
+		whereClause,
+	)
+	t.logger.Info(fmt.Sprintf("[DEBUG] query: %s, args: %#v", query, whereClauseArgs))
+
+	stmt, err := tx.Prepare(query) // to avoid SQL injection
+	if err != nil {
+		panic(err)
+	}
+
+	rows, err := stmt.Query(whereClauseArgs...)
+	if err != nil {
+		panic(err)
+	}
+	defer rows.Close()
+
+	result := make([]*Row, 0)
+	for rows.Next() {
+		result = append(result, t.scanRow(ctx, rows))
+	}
+	return result
+}
 
 // //////////////////////////////////////////////////
 // insert row
@@ -110,7 +151,7 @@ func (t *sqlTable[Row]) InsertRow(ctx context.Context, tx *sql.Tx, row *Row) *Ro
 // //////////////////////////////////////////////////
 // select row
 
-func (t *sqlTable[Row]) SelectRow(ctx context.Context, tx *sql.Tx, whereClause string, whereClauseArgs ...any) (*Row, error) {
+func (t *sqlTable[Row]) SelectRow(ctx context.Context, tx *sql.Tx, wc SqlWhereClause) (*Row, error) {
 
 	returningColumns := make([]string, 0, len(t.columns))
 
@@ -118,10 +159,10 @@ func (t *sqlTable[Row]) SelectRow(ctx context.Context, tx *sql.Tx, whereClause s
 		returningColumns = append(returningColumns, column.Name)
 	}
 
-	whereClause = strings.Trim(whereClause, " ")
-	if whereClause == "" {
+	if wc.IsEmpty() {
 		panic(ErrMissingWhereClause)
 	}
+	whereClause, whereClauseArgs := wc.Generate(0)
 
 	query := fmt.Sprintf(
 		"SELECT %s FROM %s %s LIMIT 1",
@@ -151,12 +192,12 @@ func (t *sqlTable[Row]) SelectRow(ctx context.Context, tx *sql.Tx, whereClause s
 // //////////////////////////////////////////////////
 // exists row
 
-func (t *sqlTable[Row]) ExistsRow(ctx context.Context, tx *sql.Tx, whereClause string, whereClauseArgs ...any) bool {
+func (t *sqlTable[Row]) ExistsRow(ctx context.Context, tx *sql.Tx, wc SqlWhereClause) bool {
 
-	whereClause = strings.Trim(whereClause, " ")
-	if whereClause == "" {
+	if wc.IsEmpty() {
 		panic(ErrMissingWhereClause)
 	}
+	whereClause, whereClauseArgs := wc.Generate(0)
 
 	query := fmt.Sprintf(
 		"SELECT EXISTS( SELECT 1 FROM %s %s )",
@@ -188,7 +229,7 @@ func (t *sqlTable[Row]) ExistsRow(ctx context.Context, tx *sql.Tx, whereClause s
 // //////////////////////////////////////////////////
 // update row
 
-func (t *sqlTable[Row]) UpdateRow(ctx context.Context, tx *sql.Tx, row *Row, whereClause string, whereClauseArgs ...any) *Row {
+func (t *sqlTable[Row]) UpdateRow_Off(ctx context.Context, tx *sql.Tx, row *Row, wc SqlWhereClause) *Row {
 
 	if row == nil {
 		panic(ErrMissingSqlRow)
@@ -197,6 +238,11 @@ func (t *sqlTable[Row]) UpdateRow(ctx context.Context, tx *sql.Tx, row *Row, whe
 
 	returningColumns := make([]string, 0, len(t.columns))
 	setValues := make([]string, 0, len(t.columns))
+
+	if wc.IsEmpty() {
+		panic(ErrMissingWhereClause)
+	}
+	whereClause, whereClauseArgs := wc.Generate(0)
 
 	args := whereClauseArgs
 
@@ -210,13 +256,8 @@ func (t *sqlTable[Row]) UpdateRow(ctx context.Context, tx *sql.Tx, row *Row, whe
 		args = append(args, arg)
 	}
 
-	whereClause = strings.Trim(whereClause, " ")
-	if whereClause == "" {
-		panic(ErrMissingWhereClause)
-	}
-
 	query := fmt.Sprintf(
-		"UPDATE %s SET %s %s LIMIT 1 RETURNING %s",
+		"UPDATE %s SET %s %s RETURNING %s", //  LIMIT 1
 		t.name,
 		strings.Join(setValues, ","),
 		whereClause,
@@ -235,22 +276,85 @@ func (t *sqlTable[Row]) UpdateRow(ctx context.Context, tx *sql.Tx, row *Row, whe
 	}
 	defer rows.Close()
 
+	var result *Row
 	for rows.Next() {
-		return t.scanRow(ctx, rows)
+		result = t.scanRow(ctx, rows)
+		t.logger.Info(fmt.Sprintf("[DEBUG] result = %#v", result))
+	}
+	t.logger.Info(fmt.Sprintf("[DEBUG] >>> result = %#v", result))
+	return result
+
+	// panic(t.errNotFound)
+	// return nil
+}
+
+func (t *sqlTable[Row]) UpdateRow(ctx context.Context, tx *sql.Tx, row *Row, wc SqlWhereClause) *Row {
+
+	if row == nil {
+		panic(ErrMissingSqlRow)
+	}
+	reflectValue := reflect.ValueOf(row).Elem()
+
+	returningColumns := make([]string, 0, len(t.columns))
+	setValues := make([]string, 0, len(t.columns))
+
+	placeHolder := 0
+	args := make([]any, 0, len(t.columns))
+	for _, column := range t.columns {
+		returningColumns = append(returningColumns, column.Name)
+		if column.AutoGenerated || column.ReadOnly {
+			continue
+		}
+		placeHolder++
+		setValues = append(setValues, fmt.Sprintf("%s=$%d", column.Name, placeHolder))
+		arg := reflectValue.Field(column.Index).Interface()
+		args = append(args, arg)
 	}
 
-	panic(t.errNotFound)
+	if wc.IsEmpty() {
+		panic(ErrMissingWhereClause)
+	}
+	whereClause, whereClauseArgs := wc.Generate(placeHolder)
+	args = append(args, whereClauseArgs...)
+
+	query := fmt.Sprintf(
+		"UPDATE %s SET %s %s RETURNING %s", //  LIMIT 1
+		t.name,
+		strings.Join(setValues, ","),
+		whereClause,
+		strings.Join(returningColumns, ","),
+	)
+	t.logger.Info(fmt.Sprintf("[DEBUG] query: %s, args: %#v", query, args))
+
+	stmt, err := tx.Prepare(query) // to avoid SQL injection
+	if err != nil {
+		panic(err)
+	}
+
+	rows, err := stmt.Query(args...)
+	if err != nil {
+		panic(err)
+	}
+	defer rows.Close()
+
+	var result *Row
+	for rows.Next() {
+		result = t.scanRow(ctx, rows)
+		t.logger.Info(fmt.Sprintf("[DEBUG] result = %#v", result))
+	}
+	t.logger.Info(fmt.Sprintf("[DEBUG] >>> result = %#v", result))
+	return result
+
+	// panic(t.errNotFound)
+	// return nil
 }
 
 // //////////////////////////////////////////////////
-// delete row
+// delete rows
 
-func (t *sqlTable[Row]) DeleteRow(ctx context.Context, tx *sql.Tx, whereClause string, whereClauseArgs ...any) error {
+func (t *sqlTable[Row]) DeleteRows(ctx context.Context, tx *sql.Tx, wc SqlWhereClause) int64 {
 
-	whereClause = strings.Trim(whereClause, " ")
-	if whereClause == "" {
-		panic(ErrMissingWhereClause)
-	}
+	whereClause, whereClauseArgs := wc.Generate(0)
 
 	query := fmt.Sprintf(
 		"DELETE FROM %s %s",
@@ -273,10 +377,7 @@ func (t *sqlTable[Row]) DeleteRow(ctx context.Context, tx *sql.Tx, whereClause s
 	if err != nil {
 		panic(err)
 	}
-	if nb == 0 {
-		return t.errNotFound
-	}
-	return nil
+	return nb
 }
 
 // //////////////////////////////////////////////////
