@@ -1,4 +1,4 @@
-package store
+package memory
 
 import (
 	"context"
@@ -6,12 +6,13 @@ import (
 	"sync"
 
 	"github.com/gre-ory/amnezic-go/internal/model"
+	"github.com/gre-ory/amnezic-go/internal/store"
 )
 
 // //////////////////////////////////////////////////
 // music memory store
 
-func NewMusicMemoryStore() MusicStore {
+func NewMusicMemoryStore() store.MusicStore {
 	return &musicMemoryStore{
 		musics: make(map[model.MusicId]*model.Music),
 	}

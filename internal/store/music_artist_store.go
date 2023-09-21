@@ -74,7 +74,7 @@ func (s *musicArtistStore) Create(ctx context.Context, tx *sql.Tx, obj *model.Mu
 // retrieve
 
 func (s *musicArtistStore) Retrieve(ctx context.Context, tx *sql.Tx, id model.MusicArtistId) *model.MusicArtist {
-	row, err := s.SelectRow(ctx, tx, "WHERE id = $1", id)
+	row, err := s.SelectRow(ctx, tx, s.matchingId(id))
 	if err != nil {
 		panic(err)
 	}
@@ -85,7 +85,7 @@ func (s *musicArtistStore) Retrieve(ctx context.Context, tx *sql.Tx, id model.Mu
 // retrieve by deezer id
 
 func (s *musicArtistStore) SearchByDeezerId(ctx context.Context, tx *sql.Tx, deezerId model.DeezerArtistId) *model.MusicArtist {
-	row, _ := s.SelectRow(ctx, tx, "WHERE deezer_id = $1", deezerId)
+	row, _ := s.SelectRow(ctx, tx, util.NewSqlCondition("deezer_id = %s", deezerId))
 	return s.DecodeRow(row)
 }
 
@@ -93,12 +93,19 @@ func (s *musicArtistStore) SearchByDeezerId(ctx context.Context, tx *sql.Tx, dee
 // update
 
 func (s *musicArtistStore) Update(ctx context.Context, tx *sql.Tx, obj *model.MusicArtist) *model.MusicArtist {
-	return s.DecodeRow(s.UpdateRow(ctx, tx, s.EncodeRow(obj), "WHERE id = $1", obj.Id))
+	return s.DecodeRow(s.UpdateRow(ctx, tx, s.EncodeRow(obj), s.matchingId(obj.Id)))
 }
 
 // //////////////////////////////////////////////////
 // delete
 
 func (s *musicArtistStore) Delete(ctx context.Context, tx *sql.Tx, id model.MusicArtistId) {
-	s.DeleteRow(ctx, tx, "WHERE id = $1", id)
+	s.DeleteRows(ctx, tx, s.matchingId(id))
+}
+
+// //////////////////////////////////////////////////
+// where clause
+
+func (s *musicArtistStore) matchingId(id model.MusicArtistId) util.SqlWhereClause {
+	return util.NewSqlCondition("id = %s", id)
 }

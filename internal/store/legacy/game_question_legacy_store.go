@@ -1,4 +1,4 @@
-package store
+package legacy
 
 import (
 	"context"
@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/gre-ory/amnezic-go/internal/model"
+	"github.com/gre-ory/amnezic-go/internal/store"
 	"github.com/gre-ory/amnezic-go/internal/util"
 	"go.uber.org/zap"
 
@@ -19,11 +20,10 @@ import (
 // legacy music store
 
 const (
-	RootPath_AmnezicDotCom = "http://cache.amnezic.com/"
-	RootPath_FreeDotFr     = "http://gregory.valigiani.free.fr/amnezic/"
+	RootPath_FreeDotFr = "http://gregory.valigiani.free.fr/amnezic/"
 )
 
-func NewGameQuestionLegacyStore(logger *zap.Logger, rootPath string) GameQuestionStore {
+func NewGameQuestionLegacyStore(logger *zap.Logger, rootPath string) store.GameQuestionStore {
 	store := &gameQuestionLegacyMusicStore{
 		logger:           logger,
 		rootPath:         strings.TrimRight(rootPath, "/"),

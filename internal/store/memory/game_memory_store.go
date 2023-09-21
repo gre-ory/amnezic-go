@@ -1,4 +1,4 @@
-package store
+package memory
 
 import (
 	"context"
@@ -6,12 +6,13 @@ import (
 	"sync"
 
 	"github.com/gre-ory/amnezic-go/internal/model"
+	"github.com/gre-ory/amnezic-go/internal/store"
 )
 
 // //////////////////////////////////////////////////
 // game memory store
 
-func NewGameMemoryStore() GameStore {
+func NewGameMemoryStore() store.GameStore {
 	return &gameMemoryStore{
 		games: make(map[model.GameId]*model.Game),
 	}

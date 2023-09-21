@@ -1,4 +1,4 @@
-package store
+package memory
 
 import (
 	"context"
@@ -6,12 +6,13 @@ import (
 	"sync"
 
 	"github.com/gre-ory/amnezic-go/internal/model"
+	"github.com/gre-ory/amnezic-go/internal/store"
 )
 
 // //////////////////////////////////////////////////
 // theme memory store
 
-func NewThemeMemoryStore() ThemeStore {
+func NewThemeMemoryStore() store.ThemeStore {
 	return &themeMemoryStore{
 		themes: make(map[model.ThemeId]*model.Theme),
 	}
@@ -42,7 +43,7 @@ func (s *themeMemoryStore) Retrieve(ctx context.Context, _ *sql.Tx, id model.The
 
 	theme, found := s.themes[id]
 	if !found {
-		return nil
+		panic(model.ErrThemeNotFound)
 	}
 	return theme.Copy()
 }

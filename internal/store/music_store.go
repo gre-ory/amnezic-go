@@ -82,7 +82,7 @@ func (s *musicStore) Create(ctx context.Context, tx *sql.Tx, obj *model.Music) *
 // retrieve
 
 func (s *musicStore) Retrieve(ctx context.Context, tx *sql.Tx, id model.MusicId) *model.Music {
-	row, err := s.SelectRow(ctx, tx, "WHERE id = $1", id)
+	row, err := s.SelectRow(ctx, tx, s.matchingId(id))
 	if err != nil {
 		panic(err)
 	}
@@ -93,7 +93,7 @@ func (s *musicStore) Retrieve(ctx context.Context, tx *sql.Tx, id model.MusicId)
 // search by deezer id
 
 func (s *musicStore) SearchByDeezerId(ctx context.Context, tx *sql.Tx, deezerId model.DeezerMusicId) *model.Music {
-	row, _ := s.SelectRow(ctx, tx, "WHERE deezer_id = $1", deezerId)
+	row, _ := s.SelectRow(ctx, tx, util.NewSqlCondition("deezer_id = %s", deezerId))
 	return s.DecodeRow(row)
 }
 
@@ -101,26 +101,33 @@ func (s *musicStore) SearchByDeezerId(ctx context.Context, tx *sql.Tx, deezerId 
 // update
 
 func (s *musicStore) Update(ctx context.Context, tx *sql.Tx, obj *model.Music) *model.Music {
-	return s.DecodeRow(s.UpdateRow(ctx, tx, s.EncodeRow(obj), "WHERE id = $1", obj.Id))
+	return s.DecodeRow(s.UpdateRow(ctx, tx, s.EncodeRow(obj), s.matchingId(obj.Id)))
 }
 
 // //////////////////////////////////////////////////
 // delete
 
 func (s *musicStore) Delete(ctx context.Context, tx *sql.Tx, id model.MusicId) {
-	s.DeleteRow(ctx, tx, "WHERE id = $1", id)
+	s.DeleteRows(ctx, tx, s.matchingId(id))
 }
 
 // //////////////////////////////////////////////////
 // album usage
 
 func (s *musicStore) IsAlbumUsed(ctx context.Context, tx *sql.Tx, albumId model.MusicAlbumId) bool {
-	return s.ExistsRow(ctx, tx, "WHERE album_id = $1", albumId)
+	return s.ExistsRow(ctx, tx, util.NewSqlCondition("album_id = %s", albumId))
 }
 
 // //////////////////////////////////////////////////
 // artist usage
 
 func (s *musicStore) IsArtistUsed(ctx context.Context, tx *sql.Tx, artistId model.MusicArtistId) bool {
-	return s.ExistsRow(ctx, tx, "WHERE artist_id = $1", artistId)
+	return s.ExistsRow(ctx, tx, util.NewSqlCondition("artist_id = %s", artistId))
+}
+
+// //////////////////////////////////////////////////
+// where clause
+
+func (s *musicStore) matchingId(id model.MusicId) util.SqlWhereClause {
+	return util.NewSqlCondition("id = %s", id)
 }

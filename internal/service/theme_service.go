@@ -219,10 +219,10 @@ func (s *themeService) UpdateTheme(ctx context.Context, theme *model.Theme) (*mo
 	})
 
 	if err != nil {
-		s.logger.Info(fmt.Sprintf("[ KO ] update theme: %#v", theme), zap.Error(err))
+		s.logger.Info(fmt.Sprintf("[ KO ] update theme %d - %s", theme.Id, theme.Title), zap.Object("theme", theme), zap.Error(err))
 		return nil, err
 	}
-	s.logger.Info(fmt.Sprintf("[ OK ] update theme: %#v", updated))
+	s.logger.Info(fmt.Sprintf("[ OK ] update theme %d - %s", updated.Id, updated.Title), zap.Object("theme", updated))
 	return updated, nil
 
 }

@@ -1,4 +1,4 @@
-package store
+package memory
 
 import (
 	"context"
@@ -6,12 +6,13 @@ import (
 	"sync"
 
 	"github.com/gre-ory/amnezic-go/internal/model"
+	"github.com/gre-ory/amnezic-go/internal/store"
 )
 
 // //////////////////////////////////////////////////
 // themeQuestion memory store
 
-func NewThemeQuestionMemoryStore() ThemeQuestionStore {
+func NewThemeQuestionMemoryStore() store.ThemeQuestionStore {
 	return &themeQuestionMemoryStore{
 		themeQuestions: make(map[model.ThemeQuestionId]*model.ThemeQuestion),
 	}
@@ -94,4 +95,20 @@ func (s *themeQuestionMemoryStore) CountByTheme(ctx context.Context, _ *sql.Tx) 
 	}
 
 	return count
+}
+
+func (s *themeQuestionMemoryStore) IsMusicUsed(ctx context.Context, tx *sql.Tx, musicId model.MusicId) bool {
+	s.themeQuestionsLock.Lock()
+	defer s.themeQuestionsLock.Unlock()
+
+	if musicId == 0 {
+		panic(model.ErrInvalidMusicId)
+	}
+
+	for _, question := range s.themeQuestions {
+		if question.MusicId == musicId {
+			return true
+		}
+	}
+	return false
 }

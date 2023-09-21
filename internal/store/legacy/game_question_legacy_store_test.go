@@ -1,11 +1,11 @@
-package store_test
+package legacy_test
 
 import (
 	"context"
 	"testing"
 
 	"github.com/gre-ory/amnezic-go/internal/model"
-	"github.com/gre-ory/amnezic-go/internal/store"
+	"github.com/gre-ory/amnezic-go/internal/store/legacy"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 )
@@ -23,7 +23,7 @@ func TestLegacyMusicStore(t *testing.T) {
 	}
 	logger := zap.L()
 
-	store := store.NewGameQuestionLegacyStore(logger, rootPath)
+	store := legacy.NewGameQuestionLegacyStore(logger, rootPath)
 	gotQuestions := store.SelectRandomQuestions(ctx, nil, settings)
 
 	require.Equal(t, []*model.GameQuestion{
@@ -98,7 +98,7 @@ func Off_TestReproduce(t *testing.T) {
 	config.Development = false
 	logger, _ := config.Build()
 
-	store := store.NewGameQuestionLegacyStore(logger, rootPath)
+	store := legacy.NewGameQuestionLegacyStore(logger, rootPath)
 	gotQuestions := store.SelectRandomQuestions(ctx, nil, settings)
 
 	require.Equal(t, &model.GameQuestion{

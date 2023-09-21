@@ -133,7 +133,7 @@ func TestSqlTable(t *testing.T) {
 	t.Run("select-row", func(t *testing.T) {
 
 		mock.ExpectBegin()
-		mock.ExpectPrepare("SELECT id,name,value FROM test where id = $1 LIMIT 1").
+		mock.ExpectPrepare("SELECT id,name,value FROM test WHERE id = $1 LIMIT 1").
 			ExpectQuery().
 			WithArgs(1002).
 			WillReturnRows(
@@ -147,7 +147,7 @@ func TestSqlTable(t *testing.T) {
 		var gotRow *TestRow
 		var gotSelectErr error
 		gotErr := util.SqlTransaction(ctx, db, func(tx *sql.Tx) {
-			gotRow, gotSelectErr = table.SelectRow(ctx, tx, "where id = $1", 1002)
+			gotRow, gotSelectErr = table.SelectRow(ctx, tx, util.NewSqlCondition("id = %s", 1002))
 		})
 
 		require.Equal(t, nil, gotErr, "wrong error")
@@ -170,7 +170,7 @@ func TestSqlTable(t *testing.T) {
 	t.Run("select-none", func(t *testing.T) {
 
 		mock.ExpectBegin()
-		mock.ExpectPrepare("SELECT id,name,value FROM test where id = $1 LIMIT 1").
+		mock.ExpectPrepare("SELECT id,name,value FROM test WHERE id = $1 LIMIT 1").
 			ExpectQuery().
 			WithArgs(1002).
 			WillReturnRows(
@@ -182,7 +182,7 @@ func TestSqlTable(t *testing.T) {
 		var gotRow *TestRow
 		var gotSelectErr error
 		gotErr := util.SqlTransaction(ctx, db, func(tx *sql.Tx) {
-			gotRow, gotSelectErr = table.SelectRow(ctx, tx, "where id = $1", 1002)
+			gotRow, gotSelectErr = table.SelectRow(ctx, tx, util.NewSqlCondition("id = %s", 1002))
 		})
 
 		require.Equal(t, nil, gotErr, "wrong error")
@@ -201,7 +201,7 @@ func TestSqlTable(t *testing.T) {
 	t.Run("exists-row", func(t *testing.T) {
 
 		mock.ExpectBegin()
-		mock.ExpectPrepare("SELECT EXISTS( SELECT 1 FROM test where id = $1 )").
+		mock.ExpectPrepare("SELECT EXISTS( SELECT 1 FROM test WHERE id = $1 )").
 			ExpectQuery().
 			WithArgs(1002).
 			WillReturnRows(
@@ -213,7 +213,7 @@ func TestSqlTable(t *testing.T) {
 		table := util.NewSqlTable[TestRow](logger, "test", ErrTestRowNotFound)
 		var gotExists bool
 		gotErr := util.SqlTransaction(ctx, db, func(tx *sql.Tx) {
-			gotExists = table.ExistsRow(ctx, tx, "where id = $1", 1002)
+			gotExists = table.ExistsRow(ctx, tx, util.NewSqlCondition("id = %s", 1002))
 		})
 
 		require.Equal(t, nil, gotErr, "wrong error")
@@ -231,7 +231,7 @@ func TestSqlTable(t *testing.T) {
 	t.Run("exists-row", func(t *testing.T) {
 
 		mock.ExpectBegin()
-		mock.ExpectPrepare("SELECT EXISTS( SELECT 1 FROM test where id = $1 )").
+		mock.ExpectPrepare("SELECT EXISTS( SELECT 1 FROM test WHERE id = $1 )").
 			ExpectQuery().
 			WithArgs(1002).
 			WillReturnRows(
@@ -243,7 +243,7 @@ func TestSqlTable(t *testing.T) {
 		table := util.NewSqlTable[TestRow](logger, "test", ErrTestRowNotFound)
 		var gotExists bool
 		gotErr := util.SqlTransaction(ctx, db, func(tx *sql.Tx) {
-			gotExists = table.ExistsRow(ctx, tx, "where id = $1", 1002)
+			gotExists = table.ExistsRow(ctx, tx, util.NewSqlCondition("id = %s", 1002))
 		})
 
 		require.Equal(t, nil, gotErr, "wrong error")
@@ -261,7 +261,7 @@ func TestSqlTable(t *testing.T) {
 	t.Run("update-row", func(t *testing.T) {
 
 		mock.ExpectBegin()
-		mock.ExpectPrepare("UPDATE test SET name=$2 where id = $1 LIMIT 1 RETURNING id,name,value").
+		mock.ExpectPrepare("UPDATE test SET name=$2 WHERE id = $1 LIMIT 1 RETURNING id,name,value").
 			ExpectQuery().
 			WithArgs(1001, "my-name").
 			WillReturnRows(
@@ -279,7 +279,7 @@ func TestSqlTable(t *testing.T) {
 				Id:    1001,
 				Name:  "my-name",
 				Value: 99,
-			}, "where id = $1", 1001)
+			}, util.NewSqlCondition("id = %s", 1001))
 		})
 
 		require.Equal(t, nil, gotErr, "wrong error")
@@ -301,7 +301,7 @@ func TestSqlTable(t *testing.T) {
 	t.Run("update-none", func(t *testing.T) {
 
 		mock.ExpectBegin()
-		mock.ExpectPrepare("UPDATE test SET name=$2 where id = $1 LIMIT 1 RETURNING id,name,value").
+		mock.ExpectPrepare("UPDATE test SET name=$2 WHERE id = $1 LIMIT 1 RETURNING id,name,value").
 			ExpectQuery().
 			WithArgs(1001, "my-name").
 			WillReturnRows(
@@ -317,7 +317,7 @@ func TestSqlTable(t *testing.T) {
 				Id:    1001,
 				Name:  "my-name",
 				Value: 99,
-			}, "where id = $1", 1001)
+			}, util.NewSqlCondition("id = %s", 1001))
 		})
 
 		require.Equal(t, ErrTestRowNotFound, gotErr, "wrong error")
@@ -335,7 +335,7 @@ func TestSqlTable(t *testing.T) {
 	t.Run("delete-row", func(t *testing.T) {
 
 		mock.ExpectBegin()
-		mock.ExpectPrepare("DELETE FROM test where id = $1 LIMIT 1").
+		mock.ExpectPrepare("DELETE FROM test WHERE id = $1").
 			ExpectExec().
 			WithArgs(1001).
 			WillReturnResult(sqlmock.NewResult(0, 1))
@@ -343,13 +343,13 @@ func TestSqlTable(t *testing.T) {
 
 		table := util.NewSqlTable[TestRow](logger, "test", ErrTestRowNotFound)
 
-		var gotDeleteErr error
+		var gotNb int64
 		gotErr := util.SqlTransaction(ctx, db, func(tx *sql.Tx) {
-			gotDeleteErr = table.DeleteRow(ctx, tx, "where id = $1", 1001)
+			gotNb = table.DeleteRows(ctx, tx, util.NewSqlCondition("id = %s", 1001))
 		})
 
 		require.Equal(t, nil, gotErr, "wrong error")
-		require.Equal(t, nil, gotDeleteErr, "wrong delete error")
+		require.Equal(t, int64(1), gotNb, "wrong nb")
 
 		if err := mock.ExpectationsWereMet(); err != nil {
 			t.Errorf("there were unfulfilled expectations: %s", err)
@@ -363,7 +363,7 @@ func TestSqlTable(t *testing.T) {
 	t.Run("delete-none", func(t *testing.T) {
 
 		mock.ExpectBegin()
-		mock.ExpectPrepare("DELETE FROM test where id = $1 LIMIT 1").
+		mock.ExpectPrepare("DELETE FROM test WHERE id = $1").
 			ExpectExec().
 			WithArgs(1001).
 			WillReturnResult(sqlmock.NewResult(0, 0))
@@ -371,13 +371,13 @@ func TestSqlTable(t *testing.T) {
 
 		table := util.NewSqlTable[TestRow](logger, "test", ErrTestRowNotFound)
 
-		var gotDeleteErr error
+		var gotNb int64
 		gotErr := util.SqlTransaction(ctx, db, func(tx *sql.Tx) {
-			gotDeleteErr = table.DeleteRow(ctx, tx, "where id = $1", 1001)
+			gotNb = table.DeleteRows(ctx, tx, util.NewSqlCondition("id = %s", 1001))
 		})
 
 		require.Equal(t, nil, gotErr, "wrong error")
-		require.Equal(t, ErrTestRowNotFound, gotDeleteErr, "wrong delete error")
+		require.Equal(t, int64(0), gotNb, "wrong nb")
 
 		if err := mock.ExpectationsWereMet(); err != nil {
 			t.Errorf("there were unfulfilled expectations: %s", err)

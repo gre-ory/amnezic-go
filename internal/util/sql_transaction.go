@@ -15,6 +15,10 @@ func SqlTransaction(ctx context.Context, db *sql.DB, onTransaction func(tx *sql.
 
 	defer func() {
 		if r := recover(); r != nil {
+			debug := false
+			if debug {
+				panic(r)
+			}
 			if panicErr, ok := r.(error); ok {
 				tx.Rollback()
 				err = panicErr

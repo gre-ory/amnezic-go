@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# go install github.com/pressly/goose/v3/cmd/goose@latest
+
 PHASE=$( echo ${1:-loc} | awk '{ print tolower($0); }' )
 
 ENV_FILE="$( dirname $0 )/${PHASE}.env"
