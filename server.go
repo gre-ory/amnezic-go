@@ -194,8 +194,8 @@ func (s *BackendServer) Run(ctx context.Context) {
 	// service
 	//
 
-	gameService := service.NewGameService(s.logger, db, gameStore, gameQuestionStore)
-	musicService := service.NewMusicService(s.logger, deezerClient, db, musicStore, albumStore, artistStore, themeQuestionStore)
+	gameService := service.NewGameService(s.logger, db, gameStore, gameQuestionStore, musicStore, artistStore, albumStore, themeStore, themeQuestionStore)
+	musicService := service.NewMusicService(s.logger, deezerClient, db, musicStore, albumStore, artistStore, themeStore, themeQuestionStore)
 	themeService := service.NewThemeService(s.logger, db, themeStore, themeQuestionStore, musicStore)
 
 	//
@@ -204,7 +204,7 @@ func (s *BackendServer) Run(ctx context.Context) {
 
 	gameHandler := api.NewGamehandler(s.logger, gameService)
 	musicHandler := api.NewMusichandler(s.logger, musicService)
-	themeHandler := api.NewThemehandler(s.logger, themeService)
+	themeHandler := api.NewThemehandler(s.logger, themeService, musicService)
 
 	//
 	// router

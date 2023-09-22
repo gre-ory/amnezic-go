@@ -14,6 +14,12 @@ type GameSettings struct {
 	NbAnswer   int
 	NbPlayer   int
 	Sources    []Source
+	ThemeIds   []ThemeId
+}
+
+func (o *GameSettings) UseStore() bool {
+	_, ok := util.FindIf(o.Sources, Source.IsStore)
+	return ok
 }
 
 func (o *GameSettings) MarshalLogObject(enc zapcore.ObjectEncoder) error {
@@ -22,6 +28,7 @@ func (o *GameSettings) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	enc.AddInt("nb-answer", o.NbAnswer)
 	enc.AddInt("nb-player", o.NbPlayer)
 	enc.AddString("sources", util.Join(o.Sources, Source.String))
+	enc.AddString("theme-ids", util.Join(o.ThemeIds, ThemeId.String))
 	return nil
 }
 

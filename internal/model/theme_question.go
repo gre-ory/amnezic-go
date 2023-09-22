@@ -15,7 +15,21 @@ type ThemeQuestion struct {
 	Hint    string
 
 	// consolidated data
+	Theme *Theme
 	Music *Music
+}
+
+func (o *ThemeQuestion) Validate() error {
+	if o.ThemeId == 0 {
+		return ErrInvalidThemeId
+	}
+	if o.MusicId == 0 {
+		return ErrInvalidMusicId
+	}
+	if o.Text == "" {
+		return ErrInvalidThemeQuestion
+	}
+	return nil
 }
 
 func (o *ThemeQuestion) Copy() *ThemeQuestion {

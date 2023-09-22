@@ -71,8 +71,8 @@ func (h *gameHandler) handleCreateGame(resp http.ResponseWriter, req *http.Reque
 		}
 		// CLEAN
 		if len(settings.Sources) == 0 {
-			h.logger.Warn("[api] missing sources >>> FALLBACK to legacy")
-			settings.Sources = append(settings.Sources, model.Source_Legacy)
+			h.logger.Info("[api] missing sources >>> FALLBACK to store")
+			settings.Sources = append(settings.Sources, model.Source_Store)
 		}
 
 		err = settings.Validate()

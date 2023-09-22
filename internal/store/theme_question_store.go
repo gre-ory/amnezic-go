@@ -19,6 +19,7 @@ type ThemeQuestionStore interface {
 	Delete(ctx context.Context, tx *sql.Tx, filter *model.ThemeQuestionFilter)
 	List(ctx context.Context, tx *sql.Tx, filter *model.ThemeQuestionFilter) []*model.ThemeQuestion
 	CountByTheme(ctx context.Context, tx *sql.Tx) map[model.ThemeId]int
+	IsMusicInTheme(ctx context.Context, tx *sql.Tx, themeId model.ThemeId, musicId model.MusicId) bool
 	IsMusicUsed(ctx context.Context, tx *sql.Tx, musicId model.MusicId) bool
 }
 
@@ -132,8 +133,21 @@ func (s *themeQuestionStore) CountByTheme(ctx context.Context, tx *sql.Tx) map[m
 // //////////////////////////////////////////////////
 // is music used
 
+func (s *themeQuestionStore) IsMusicInTheme(ctx context.Context, tx *sql.Tx, themeId model.ThemeId, musicId model.MusicId) bool {
+	return s.ExistsRow(ctx, tx,
+		util.NewSqlWhereClause().
+			WithCondition("theme_id = %s", themeId).
+			WithCondition("music_id = %s", musicId),
+	)
+}
+
+// //////////////////////////////////////////////////
+// is music used
+
 func (s *themeQuestionStore) IsMusicUsed(ctx context.Context, tx *sql.Tx, musicId model.MusicId) bool {
-	return s.ExistsRow(ctx, tx, util.NewSqlCondition("music_id = %s", musicId))
+	return s.ExistsRow(ctx, tx,
+		util.NewSqlCondition("music_id = %s", musicId),
+	)
 }
 
 // //////////////////////////////////////////////////
@@ -151,6 +165,15 @@ func (s *themeQuestionStore) whereClause(filter *model.ThemeQuestionFilter) util
 		}
 		if filter.ThemeId != 0 {
 			wc.WithCondition("theme_id = %s", filter.ThemeId)
+		}
+		if filter.MusicId != 0 {
+			wc.WithCondition("music_id = %s", filter.MusicId)
+		}
+		if filter.Random {
+			wc.WithRandomOrder()
+		}
+		if filter.Limit != 0 {
+			wc.WithLimit(filter.Limit)
 		}
 	}
 	return wc

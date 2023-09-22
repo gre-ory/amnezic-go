@@ -1,11 +1,19 @@
 package model
 
-import "go.uber.org/zap/zapcore"
+import (
+	"fmt"
+
+	"go.uber.org/zap/zapcore"
+)
 
 // //////////////////////////////////////////////////
 // theme
 
 type ThemeId int64
+
+func (i ThemeId) String() string {
+	return fmt.Sprintf("%d", i)
+}
 
 type Theme struct {
 	Id     ThemeId
