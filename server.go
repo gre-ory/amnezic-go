@@ -21,6 +21,8 @@ import (
 	"github.com/gre-ory/amnezic-go/internal/util"
 	"github.com/julienschmidt/httprouter"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+	"gopkg.in/natefinch/lumberjack.v2"
 
 	_ "github.com/mattn/go-sqlite3" // Import go-sqlite3 library
 )
@@ -272,36 +274,48 @@ func (d *dispatcher) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 func NewLogger() *zap.Logger {
 
-	var zapCfg zap.Config
+	logFile := os.Getenv("LOG_FILE")
+	writer := zapcore.AddSync(&lumberjack.Logger{
+		Filename:   logFile,
+		MaxSize:    100, // megabytes
+		MaxBackups: 10,
+		MaxAge:     30, // days
+	})
+	fmt.Printf("logFile: %s\n", logFile)
+
+	var zapEncoderCfg zapcore.EncoderConfig
 	switch os.Getenv("LOG_CONFIG") {
 	case "prd":
-		zapCfg = zap.NewProductionConfig()
+		zapEncoderCfg = zap.NewProductionEncoderConfig()
 	case "dev":
-		zapCfg = zap.NewDevelopmentConfig()
+		zapEncoderCfg = zap.NewDevelopmentEncoderConfig()
 	default:
 		fmt.Printf("invalid LOG_CONFIG >>> FALLBACK to 'prd'!\n")
-		zapCfg = zap.NewProductionConfig()
+		zapEncoderCfg = zap.NewProductionEncoderConfig()
 	}
 
+	var zapLevel zapcore.Level
 	switch os.Getenv("LOG_LEVEL") {
 	case "err":
-		zapCfg.Level.SetLevel(zap.ErrorLevel)
+		zapLevel = zap.ErrorLevel
 	case "warn":
-		zapCfg.Level.SetLevel(zap.WarnLevel)
+		zapLevel = zap.WarnLevel
 	case "info":
-		zapCfg.Level.SetLevel(zap.InfoLevel)
+		zapLevel = zap.InfoLevel
 	case "debug":
-		zapCfg.Level.SetLevel(zap.DebugLevel)
+		zapLevel = zap.DebugLevel
 	default:
 		fmt.Printf("invalid LOG_LEVEL >>> FALLBACK to 'info'!\n")
-		zapCfg.Level.SetLevel(zap.InfoLevel)
+		zapLevel = zap.InfoLevel
 	}
 
-	logger, err := zapCfg.Build()
-	if err != nil {
-		fmt.Printf("failed to initialize logger: %s \n", err.Error())
-		os.Exit(1)
-	}
+	core := zapcore.NewCore(
+		zapcore.NewJSONEncoder(zapEncoderCfg),
+		writer,
+		zapLevel,
+	)
+
+	logger := zap.New(core)
 	logger.Info("logger has been initialized")
 	return logger
 }
