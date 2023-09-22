@@ -12,3 +12,6 @@ fi
 
 echo "~> sudo systemctl stop amnezic.${PHASE}.service"
 sudo systemctl stop amnezic.${PHASE}.service
+
+echo "~> sudo systemctl status amnezic.${PHASE}.service"
+sudo systemctl status amnezic.${PHASE}.service

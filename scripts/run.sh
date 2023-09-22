@@ -26,6 +26,9 @@ set +o allexport
 
 >&2 echo "~> PHASE = ${PHASE}"
 >&2 echo "~> ENV_FILE = ${ENV_FILE}"
+>&2 echo "~> FRONTEND_ADDRESS = ${FRONTEND_ADDRESS}"
+>&2 echo "~> BACKEND_ADDRESS = ${BACKEND_ADDRESS}"
+>&2 echo "~> LOG_FILE = ${LOG_FILE}"
 
 >&2 echo "~> ${BIN_DIR}/${APP_NAME} &"
 ${BIN_DIR}/${APP_NAME} &
