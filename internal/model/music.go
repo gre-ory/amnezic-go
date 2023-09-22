@@ -20,8 +20,9 @@ type Music struct {
 	AlbumId  MusicAlbumId
 
 	// consolidated data
-	Artist *MusicArtist
-	Album  *MusicAlbum
+	Artist    *MusicArtist
+	Album     *MusicAlbum
+	Questions []*ThemeQuestion
 }
 
 func (o *Music) Copy() *Music {
@@ -35,6 +36,21 @@ func (o *Music) Copy() *Music {
 		Mp3Url:   o.Mp3Url,
 		ArtistId: o.ArtistId,
 		AlbumId:  o.AlbumId,
+	}
+}
+
+func (o *Music) ToThemeQuestion(themeId ThemeId) *ThemeQuestion {
+	var hint string
+	if o.Artist != nil {
+		hint = o.Artist.Name
+	} else if o.Album != nil {
+		hint = hint + " - " + o.Album.Name
+	}
+	return &ThemeQuestion{
+		ThemeId: themeId,
+		MusicId: o.Id,
+		Text:    o.Name,
+		Hint:    hint,
 	}
 }
 

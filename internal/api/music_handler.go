@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 
 	"github.com/gre-ory/amnezic-go/internal/model"
@@ -34,6 +35,7 @@ func (h *musicHandler) RegisterRoutes(router *httprouter.Router) {
 	router.HandlerFunc(http.MethodGet, "/api/music", h.handleSearchMusic)
 	router.HandlerFunc(http.MethodPut, "/api/music/new", h.handleCreateMusic)
 	router.HandlerFunc(http.MethodGet, "/api/music/:music_id", h.handleRetrieveMusic)
+	router.HandlerFunc(http.MethodPost, "/api/music/:music_id", h.handleUpdateMusic)
 	router.HandlerFunc(http.MethodDelete, "/api/music/:music_id", h.handleDeleteMusic)
 }
 
@@ -217,6 +219,69 @@ func (h *musicHandler) handleRetrieveMusic(resp http.ResponseWriter, req *http.R
 }
 
 // //////////////////////////////////////////////////
+// update
+
+func (h *musicHandler) handleUpdateMusic(resp http.ResponseWriter, req *http.Request) {
+
+	ctx := req.Context()
+
+	var musicId model.MusicId
+	var music *model.Music
+	var err error
+
+	switch {
+	default:
+
+		//
+		// decode request
+		//
+
+		musicId = model.MusicId(toInt64(extractPathParameter(req, "music_id")))
+		if musicId == 0 {
+			err = model.ErrInvalidMusicId
+			break
+		}
+		music, err = extractMusicFromBody(req)
+		if err != nil {
+			break
+		}
+		h.logger.Info(fmt.Sprintf("[api] update music %d: %#v", musicId, music))
+
+		//
+		// execute
+		//
+
+		music, err = h.service.UpdateMusic(ctx, music)
+		if err != nil {
+			break
+		}
+		if music == nil {
+			err = model.ErrMusicNotFound
+			break
+		}
+
+		//
+		// encode success
+		//
+
+		resp.Header().Set("Content-Type", "application/json")
+		resp.WriteHeader(http.StatusOK)
+		err = json.NewEncoder(resp).Encode(toJsonMusicResponse(music))
+		if err != nil {
+			break
+		}
+		return
+	}
+
+	//
+	// encode error
+	//
+
+	// TODO status code
+	encodeError(resp, http.StatusBadRequest, err.Error())
+}
+
+// //////////////////////////////////////////////////
 // delete
 
 func (h *musicHandler) handleDeleteMusic(resp http.ResponseWriter, req *http.Request) {
@@ -271,6 +336,63 @@ func (h *musicHandler) handleDeleteMusic(resp http.ResponseWriter, req *http.Req
 }
 
 // //////////////////////////////////////////////////
+// decode
+
+func extractMusicFromBody(req *http.Request) (*model.Music, error) {
+	var jsonBody JsonMusicBody
+	jsonErr := json.NewDecoder(req.Body).Decode(&jsonBody)
+	switch {
+	case jsonErr == io.EOF:
+		return nil, model.ErrInvalidBody
+	case jsonErr != nil:
+		return nil, model.ErrInvalidBody
+	}
+
+	return toMusic(jsonBody.Music), nil
+}
+
+func toMusic(jsonMusic *JsonMusic) *model.Music {
+
+	artist := toArtist(jsonMusic.Artist)
+	album := toAlbum(jsonMusic.Album)
+
+	music := &model.Music{
+		Id:       model.MusicId(jsonMusic.Id),
+		DeezerId: model.DeezerMusicId(jsonMusic.DeezerId),
+		Name:     jsonMusic.Name,
+		Mp3Url:   jsonMusic.Mp3Url,
+		ArtistId: artist.Id,
+		Artist:   artist,
+		AlbumId:  album.Id,
+		Album:    album,
+	}
+
+	return music
+}
+
+func toArtist(jsonArtist *JsonMusicArtist) *model.MusicArtist {
+	return &model.MusicArtist{
+		Id:       model.MusicArtistId(jsonArtist.Id),
+		DeezerId: model.DeezerArtistId(jsonArtist.DeezerId),
+		Name:     jsonArtist.Name,
+		ImgUrl:   jsonArtist.ImgUrl,
+	}
+}
+
+func toAlbum(jsonAlbum *JsonMusicAlbum) *model.MusicAlbum {
+	return &model.MusicAlbum{
+		Id:       model.MusicAlbumId(jsonAlbum.Id),
+		DeezerId: model.DeezerAlbumId(jsonAlbum.DeezerId),
+		Name:     jsonAlbum.Name,
+		ImgUrl:   jsonAlbum.ImgUrl,
+	}
+}
+
+type JsonMusicBody struct {
+	Music *JsonMusic `json:"music,omitempty"`
+}
+
+// //////////////////////////////////////////////////
 // encode
 
 func toJsonMusicResponse(music *model.Music) *JsonMusicResponse {
@@ -292,12 +414,13 @@ func toJsonMusic(music *model.Music) *JsonMusic {
 		return nil
 	}
 	return &JsonMusic{
-		Id:       int64(music.Id),
-		DeezerId: int64(music.DeezerId),
-		Name:     music.Name,
-		Mp3Url:   music.Mp3Url,
-		Artist:   toJsonArtist(music.Artist),
-		Album:    toJsonAlbum(music.Album),
+		Id:        int64(music.Id),
+		DeezerId:  int64(music.DeezerId),
+		Name:      music.Name,
+		Mp3Url:    music.Mp3Url,
+		Artist:    toJsonArtist(music.Artist),
+		Album:     toJsonAlbum(music.Album),
+		Questions: util.Convert(music.Questions, toJsonThemeQuestion),
 	}
 }
 
@@ -336,12 +459,13 @@ type JsonMusicsResponse struct {
 }
 
 type JsonMusic struct {
-	Id       int64            `json:"id,omitempty"`
-	DeezerId int64            `json:"deezerId,omitempty"`
-	Name     string           `json:"name,omitempty"`
-	Mp3Url   string           `json:"mp3Url,omitempty"`
-	Artist   *JsonMusicArtist `json:"artist,omitempty"`
-	Album    *JsonMusicAlbum  `json:"album,omitempty"`
+	Id        int64                `json:"id,omitempty"`
+	DeezerId  int64                `json:"deezerId,omitempty"`
+	Name      string               `json:"name,omitempty"`
+	Mp3Url    string               `json:"mp3Url,omitempty"`
+	Artist    *JsonMusicArtist     `json:"artist,omitempty"`
+	Album     *JsonMusicAlbum      `json:"album,omitempty"`
+	Questions []*JsonThemeQuestion `json:"questions,omitempty"`
 }
 
 type JsonMusicArtist struct {

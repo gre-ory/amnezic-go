@@ -8,6 +8,8 @@ import (
 type SqlWhereClause interface {
 	IsEmpty() bool
 	WithCondition(condition string, args ...any) SqlWhereClause
+	WithRandomOrder() SqlWhereClause
+	WithLimit(limit int) SqlWhereClause
 	Generate(placeHolder int) (string, []any)
 }
 
@@ -31,6 +33,8 @@ type sqlWhereClause struct {
 	conditions  []string
 	args        []any
 	placeHolder int
+	orderBy     string
+	limit       int
 }
 
 func (wc *sqlWhereClause) IsEmpty() bool {
@@ -49,16 +53,38 @@ func (wc *sqlWhereClause) WithCondition(condition string, args ...any) SqlWhereC
 	return wc
 }
 
+func (wc *sqlWhereClause) WithRandomOrder() SqlWhereClause {
+	wc.orderBy = "RANDOM()"
+	return wc
+}
+
+func (wc *sqlWhereClause) WithLimit(limit int) SqlWhereClause {
+	wc.limit = limit
+	return wc
+}
+
 func (wc *sqlWhereClause) Generate(placeHolder int) (string, []any) {
-	if wc.IsEmpty() {
-		return "", wc.args
+	var whereClause string
+	if !wc.IsEmpty() {
+		whereClause = "WHERE " + strings.Join(wc.conditions, " AND ")
+		placeHolders := make([]any, 0, len(wc.args))
+		for range wc.args {
+			placeHolder++
+			placeHolders = append(placeHolders, fmt.Sprintf("$%d", placeHolder))
+		}
+		whereClause = fmt.Sprintf(whereClause, placeHolders...)
 	}
-	whereClause := "WHERE " + strings.Join(wc.conditions, " AND ")
-	placeHolders := make([]any, 0, len(wc.args))
-	for range wc.args {
-		placeHolder++
-		placeHolders = append(placeHolders, fmt.Sprintf("$%d", placeHolder))
+	if wc.orderBy != "" {
+		if whereClause != "" {
+			whereClause += " "
+		}
+		whereClause += fmt.Sprintf("ORDER BY %s", wc.orderBy)
 	}
-	whereClause = fmt.Sprintf(whereClause, placeHolders...)
+	if wc.limit != 0 {
+		if whereClause != "" {
+			whereClause += " "
+		}
+		whereClause += fmt.Sprintf("LIMIT %d", wc.limit)
+	}
 	return whereClause, wc.args
 }

@@ -19,10 +19,11 @@ type MusicService interface {
 	SearchMusic(ctx context.Context, query string, limit int) ([]*model.Music, error)
 	AddDeezerMusic(ctx context.Context, deezerId model.DeezerMusicId) (*model.Music, error)
 	GetMusic(ctx context.Context, id model.MusicId) (*model.Music, error)
+	UpdateMusic(ctx context.Context, music *model.Music) (*model.Music, error)
 	DeleteMusic(ctx context.Context, id model.MusicId) error
 }
 
-func NewMusicService(logger *zap.Logger, deezerClient client.DeezerClient, db *sql.DB, musicStore store.MusicStore, albumStore store.MusicAlbumStore, artistStore store.MusicArtistStore, themeQuestionStore store.ThemeQuestionStore) MusicService {
+func NewMusicService(logger *zap.Logger, deezerClient client.DeezerClient, db *sql.DB, musicStore store.MusicStore, albumStore store.MusicAlbumStore, artistStore store.MusicArtistStore, themeStore store.ThemeStore, themeQuestionStore store.ThemeQuestionStore) MusicService {
 	return &musicService{
 		logger:             logger,
 		deezerClient:       deezerClient,
@@ -30,6 +31,7 @@ func NewMusicService(logger *zap.Logger, deezerClient client.DeezerClient, db *s
 		musicStore:         musicStore,
 		albumStore:         albumStore,
 		artistStore:        artistStore,
+		themeStore:         themeStore,
 		themeQuestionStore: themeQuestionStore,
 	}
 }
@@ -41,6 +43,7 @@ type musicService struct {
 	musicStore         store.MusicStore
 	albumStore         store.MusicAlbumStore
 	artistStore        store.MusicArtistStore
+	themeStore         store.ThemeStore
 	themeQuestionStore store.ThemeQuestionStore
 }
 
@@ -193,6 +196,12 @@ func (s *musicService) GetMusic(ctx context.Context, id model.MusicId) (*model.M
 			music.Artist = s.artistStore.Retrieve(ctx, tx, music.ArtistId)
 		}
 
+		//
+		// retrieve related questions
+		//
+
+		music.Questions = s.themeQuestionStore.List(ctx, tx, &model.ThemeQuestionFilter{MusicId: music.Id})
+		music.Questions = util.Convert(music.Questions, s.AttachTheme(ctx, tx))
 	})
 
 	if err != nil {
@@ -201,6 +210,28 @@ func (s *musicService) GetMusic(ctx context.Context, id model.MusicId) (*model.M
 	}
 	s.logger.Info(fmt.Sprintf("[ OK ] retrieve music %d", id))
 	return music, nil
+}
+
+// //////////////////////////////////////////////////
+// update music
+
+func (s *musicService) UpdateMusic(ctx context.Context, music *model.Music) (*model.Music, error) {
+
+	var updated *model.Music
+	err := util.SqlTransaction(ctx, s.db, func(tx *sql.Tx) {
+		updated = s.musicStore.Update(ctx, tx, music)
+		updated.Artist = s.artistStore.Update(ctx, tx, music.Artist)
+		updated.Album = s.albumStore.Update(ctx, tx, music.Album)
+		updated.Questions = s.themeQuestionStore.List(ctx, tx, &model.ThemeQuestionFilter{MusicId: music.Id})
+		updated.Questions = util.Convert(updated.Questions, s.AttachTheme(ctx, tx))
+	})
+
+	if err != nil {
+		s.logger.Info(fmt.Sprintf("[ KO ] update music %d - %s", music.Id, music.Name), zap.Object("music", music), zap.Error(err))
+		return nil, err
+	}
+	s.logger.Info(fmt.Sprintf("[ OK ] update music %d - %s", updated.Id, updated.Name), zap.Object("music", updated))
+	return updated, nil
 }
 
 // //////////////////////////////////////////////////
@@ -259,4 +290,16 @@ func (s *musicService) DeleteMusic(ctx context.Context, id model.MusicId) error 
 	}
 	s.logger.Info(fmt.Sprintf("[ OK ] delete music %d", id))
 	return nil
+}
+
+// //////////////////////////////////////////////////
+// attach theme
+
+func (s *musicService) AttachTheme(ctx context.Context, tx *sql.Tx) func(question *model.ThemeQuestion) *model.ThemeQuestion {
+	return func(question *model.ThemeQuestion) *model.ThemeQuestion {
+		if question.ThemeId != 0 {
+			question.Theme = s.themeStore.Retrieve(ctx, tx, question.ThemeId)
+		}
+		return question
+	}
 }

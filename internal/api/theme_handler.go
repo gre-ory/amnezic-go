@@ -16,16 +16,18 @@ import (
 // //////////////////////////////////////////////////
 // theme handler
 
-func NewThemehandler(logger *zap.Logger, service service.ThemeService) Handler {
+func NewThemehandler(logger *zap.Logger, themeService service.ThemeService, musicService service.MusicService) Handler {
 	return &themeHandler{
-		logger:  logger,
-		service: service,
+		logger:       logger,
+		themeService: themeService,
+		musicService: musicService,
 	}
 }
 
 type themeHandler struct {
-	logger  *zap.Logger
-	service service.ThemeService
+	logger       *zap.Logger
+	themeService service.ThemeService
+	musicService service.MusicService
 }
 
 // //////////////////////////////////////////////////
@@ -37,6 +39,10 @@ func (h *themeHandler) RegisterRoutes(router *httprouter.Router) {
 	router.HandlerFunc(http.MethodGet, "/api/theme/:theme_id", h.handleRetrieveTheme)
 	router.HandlerFunc(http.MethodPost, "/api/theme/:theme_id", h.handleUpdateTheme)
 	router.HandlerFunc(http.MethodDelete, "/api/theme/:theme_id", h.handleDeleteTheme)
+
+	router.HandlerFunc(http.MethodPut, "/api/theme-question/:theme_id/new", h.handleAddQuestion)
+	router.HandlerFunc(http.MethodPost, "/api/theme-question/:theme_id/:question_id", h.handleUpdateQuestion)
+	router.HandlerFunc(http.MethodDelete, "/api/theme-question/:theme_id/:question_id", h.handleRemoveQuestion)
 }
 
 // //////////////////////////////////////////////////
@@ -58,7 +64,7 @@ func (h *themeHandler) handleListTheme(resp http.ResponseWriter, req *http.Reque
 		// execute
 		//
 
-		themes, err = h.service.ListThemes(ctx)
+		themes, err = h.themeService.ListThemes(ctx)
 		if err != nil {
 			break
 		}
@@ -102,7 +108,7 @@ func (h *themeHandler) handleCreateTheme(resp http.ResponseWriter, req *http.Req
 		// decode request
 		//
 
-		theme, err = extractThemeFromBody(req)
+		theme, err = extractThemeFromBody(req, h.logger)
 		if err != nil {
 			break
 		}
@@ -112,7 +118,7 @@ func (h *themeHandler) handleCreateTheme(resp http.ResponseWriter, req *http.Req
 		// execute
 		//
 
-		theme, err = h.service.CreateTheme(ctx, theme)
+		theme, err = h.themeService.CreateTheme(ctx, theme)
 		if err != nil {
 			break
 		}
@@ -172,7 +178,7 @@ func (h *themeHandler) handleRetrieveTheme(resp http.ResponseWriter, req *http.R
 		// execute
 		//
 
-		theme, err = h.service.RetrieveTheme(ctx, themeId)
+		theme, err = h.themeService.RetrieveTheme(ctx, themeId)
 		if err != nil {
 			break
 		}
@@ -225,7 +231,7 @@ func (h *themeHandler) handleUpdateTheme(resp http.ResponseWriter, req *http.Req
 			err = model.ErrInvalidThemeId
 			break
 		}
-		theme, err = extractThemeFromBody(req)
+		theme, err = extractThemeFromBody(req, h.logger)
 		if err != nil {
 			break
 		}
@@ -235,7 +241,7 @@ func (h *themeHandler) handleUpdateTheme(resp http.ResponseWriter, req *http.Req
 		// execute
 		//
 
-		theme, err = h.service.UpdateTheme(ctx, theme)
+		theme, err = h.themeService.UpdateTheme(ctx, theme)
 		if err != nil {
 			break
 		}
@@ -293,7 +299,7 @@ func (h *themeHandler) handleDeleteTheme(resp http.ResponseWriter, req *http.Req
 		// execute
 		//
 
-		err = h.service.DeleteTheme(ctx, themeId)
+		err = h.themeService.DeleteTheme(ctx, themeId)
 		if err != nil {
 			break
 		}
@@ -320,19 +326,244 @@ func (h *themeHandler) handleDeleteTheme(resp http.ResponseWriter, req *http.Req
 }
 
 // //////////////////////////////////////////////////
+// add question
+
+func (h *themeHandler) handleAddQuestion(resp http.ResponseWriter, req *http.Request) {
+
+	ctx := req.Context()
+
+	var themeId model.ThemeId
+	var deezerId model.DeezerMusicId
+	var music *model.Music
+	var theme *model.Theme
+	var err error
+
+	switch {
+	default:
+
+		//
+		// decode request
+		//
+
+		themeId = model.ThemeId(toInt64(extractPathParameter(req, "theme_id")))
+		if themeId == 0 {
+			err = model.ErrInvalidThemeId
+			break
+		}
+
+		deezerId = model.DeezerMusicId(toInt64(extractParameter(req, "deezer_id")))
+		if deezerId == 0 {
+			err = model.ErrInvalidDeezerId
+			break
+		}
+		h.logger.Info(fmt.Sprintf("[api] add question from deezer music %d to theme %d", deezerId, themeId))
+
+		//
+		// execute
+		//
+
+		music, err = h.musicService.AddDeezerMusic(ctx, deezerId)
+		if err != nil {
+			break
+		}
+		if music == nil {
+			err = model.ErrMusicNotFound
+			break
+		}
+
+		//
+		// execute
+		//
+
+		question := music.ToThemeQuestion(themeId)
+		theme, err = h.themeService.AddQuestion(ctx, question)
+		if err != nil {
+			break
+		}
+
+		//
+		// encode success
+		//
+
+		resp.Header().Set("Content-Type", "application/json")
+		resp.WriteHeader(http.StatusOK)
+		err = json.NewEncoder(resp).Encode(toJsonThemeResponse(theme))
+		if err != nil {
+			break
+		}
+		return
+	}
+
+	//
+	// encode error
+	//
+
+	// TODO status code
+	encodeError(resp, http.StatusBadRequest, err.Error())
+}
+
+// //////////////////////////////////////////////////
+// update question
+
+func (h *themeHandler) handleUpdateQuestion(resp http.ResponseWriter, req *http.Request) {
+
+	ctx := req.Context()
+
+	var themeId model.ThemeId
+	var questionId model.ThemeQuestionId
+	var question *model.ThemeQuestion
+	var theme *model.Theme
+	var err error
+
+	switch {
+	default:
+
+		//
+		// decode request
+		//
+
+		themeId = model.ThemeId(toInt64(extractPathParameter(req, "theme_id")))
+		if themeId == 0 {
+			err = model.ErrInvalidThemeId
+			break
+		}
+		questionId = model.ThemeQuestionId(toInt64(extractPathParameter(req, "question_id")))
+		if questionId == 0 {
+			err = model.ErrInvalidThemeQuestionId
+			break
+		}
+		question, err = extractThemeQuestionFromBody(req, h.logger, themeId)
+		if err != nil {
+			break
+		}
+		h.logger.Info(fmt.Sprintf("[api] update question %d from theme %d", questionId, themeId), zap.Object("question", question))
+
+		//
+		// execute
+		//
+
+		theme, err = h.themeService.UpdateQuestion(ctx, question)
+		if err != nil {
+			break
+		}
+		if theme == nil {
+			err = model.ErrThemeNotFound
+			break
+		}
+
+		//
+		// encode success
+		//
+
+		resp.Header().Set("Content-Type", "application/json")
+		resp.WriteHeader(http.StatusOK)
+		err = json.NewEncoder(resp).Encode(toJsonThemeResponse(theme))
+		if err != nil {
+			break
+		}
+		return
+	}
+
+	//
+	// encode error
+	//
+
+	// TODO status code
+	encodeError(resp, http.StatusBadRequest, err.Error())
+}
+
+// //////////////////////////////////////////////////
+// remove question
+
+func (h *themeHandler) handleRemoveQuestion(resp http.ResponseWriter, req *http.Request) {
+
+	ctx := req.Context()
+
+	var themeId model.ThemeId
+	var questionId model.ThemeQuestionId
+	var theme *model.Theme
+	var err error
+
+	switch {
+	default:
+
+		//
+		// decode request
+		//
+
+		themeId = model.ThemeId(toInt64(extractPathParameter(req, "theme_id")))
+		if themeId == 0 {
+			err = model.ErrInvalidThemeId
+			break
+		}
+		questionId = model.ThemeQuestionId(toInt64(extractPathParameter(req, "question_id")))
+		if questionId == 0 {
+			err = model.ErrInvalidThemeQuestionId
+			break
+		}
+		h.logger.Info(fmt.Sprintf("[api] remove question %d from theme %d", questionId, themeId))
+
+		//
+		// execute
+		//
+
+		theme, err = h.themeService.RemoveQuestion(ctx, themeId, questionId)
+		if err != nil {
+			break
+		}
+
+		//
+		// encode success
+		//
+
+		resp.Header().Set("Content-Type", "application/json")
+		resp.WriteHeader(http.StatusOK)
+		err = json.NewEncoder(resp).Encode(toJsonThemeResponse(theme))
+		if err != nil {
+			break
+		}
+		return
+	}
+
+	//
+	// encode error
+	//
+
+	// TODO status code
+	encodeError(resp, http.StatusBadRequest, err.Error())
+}
+
+// //////////////////////////////////////////////////
 // decode
 
-func extractThemeFromBody(req *http.Request) (*model.Theme, error) {
+func extractThemeFromBody(req *http.Request, logger *zap.Logger) (*model.Theme, error) {
 	var jsonBody JsonThemeBody
 	jsonErr := json.NewDecoder(req.Body).Decode(&jsonBody)
 	switch {
 	case jsonErr == io.EOF:
+		logger.Info("failed to decode theme body: EOF")
 		return nil, model.ErrInvalidBody
 	case jsonErr != nil:
+		logger.Info("failed to decode theme body", zap.Error(jsonErr))
 		return nil, model.ErrInvalidBody
 	}
 
 	return toTheme(jsonBody.Theme), nil
+}
+
+func extractThemeQuestionFromBody(req *http.Request, logger *zap.Logger, themeId model.ThemeId) (*model.ThemeQuestion, error) {
+	var jsonBody JsonThemeQuestionBody
+	jsonErr := json.NewDecoder(req.Body).Decode(&jsonBody)
+	switch {
+	case jsonErr == io.EOF:
+		logger.Info("failed to decode theme body: EOF")
+		return nil, model.ErrInvalidBody
+	case jsonErr != nil:
+		logger.Info("failed to decode theme question body", zap.Error(jsonErr))
+		return nil, model.ErrInvalidBody
+	}
+
+	return toThemeQuestion(themeId, jsonBody.Question), nil
 }
 
 func toTheme(jsonTheme *JsonTheme) *model.Theme {
@@ -368,6 +599,10 @@ type JsonThemeBody struct {
 	Theme *JsonTheme `json:"theme,omitempty"`
 }
 
+type JsonThemeQuestionBody struct {
+	Question *JsonThemeQuestion `json:"question,omitempty"`
+}
+
 // //////////////////////////////////////////////////
 // encode
 
@@ -395,12 +630,17 @@ func toJsonThemeResponse(theme *model.Theme) *JsonThemeResponse {
 }
 
 func toJsonTheme(theme *model.Theme) *JsonTheme {
-	return &JsonTheme{
-		Id:        int64(theme.Id),
-		Title:     theme.Title,
-		ImgUrl:    theme.ImgUrl,
-		Questions: util.Convert(theme.Questions, toJsonThemeQuestion),
+	jsonTheme := &JsonTheme{
+		Id:     int64(theme.Id),
+		Title:  theme.Title,
+		ImgUrl: theme.ImgUrl,
 	}
+
+	if theme.Questions != nil {
+		jsonTheme.Questions = util.Convert(theme.Questions, toJsonThemeQuestion)
+	}
+
+	return jsonTheme
 }
 
 func toJsonThemeQuestion(question *model.ThemeQuestion) *JsonThemeQuestion {
@@ -412,10 +652,10 @@ func toJsonThemeQuestion(question *model.ThemeQuestion) *JsonThemeQuestion {
 
 	if question.Music != nil {
 		jsonQuestion.Music = toJsonMusic(question.Music)
-	} else {
-		jsonQuestion.Music = &JsonMusic{
-			Id: int64(question.MusicId),
-		}
+	}
+
+	if question.Theme != nil {
+		jsonQuestion.Theme = toJsonTheme(question.Theme)
 	}
 
 	return jsonQuestion
@@ -449,5 +689,6 @@ type JsonThemeQuestion struct {
 	Id    int64      `json:"id,omitempty"`
 	Text  string     `json:"text,omitempty"`
 	Hint  string     `json:"hint,omitempty"`
+	Theme *JsonTheme `json:"theme,omitempty"`
 	Music *JsonMusic `json:"music,omitempty"`
 }

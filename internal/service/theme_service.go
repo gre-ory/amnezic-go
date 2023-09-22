@@ -20,6 +20,9 @@ type ThemeService interface {
 	RetrieveTheme(ctx context.Context, id model.ThemeId) (*model.Theme, error)
 	UpdateTheme(ctx context.Context, theme *model.Theme) (*model.Theme, error)
 	DeleteTheme(ctx context.Context, id model.ThemeId) error
+	AddQuestion(ctx context.Context, question *model.ThemeQuestion) (*model.Theme, error)
+	UpdateQuestion(ctx context.Context, question *model.ThemeQuestion) (*model.Theme, error)
+	RemoveQuestion(ctx context.Context, id model.ThemeId, questionId model.ThemeQuestionId) (*model.Theme, error)
 }
 
 func NewThemeService(logger *zap.Logger, db *sql.DB, themeStore store.ThemeStore, themequestionStore store.ThemeQuestionStore, musicStore store.MusicStore) ThemeService {
@@ -254,6 +257,131 @@ func (s *themeService) DeleteTheme(ctx context.Context, id model.ThemeId) error 
 	}
 	s.logger.Info(fmt.Sprintf("[ OK ] delete theme: %#v", id))
 	return nil
+}
+
+// //////////////////////////////////////////////////
+// add question
+
+func (s *themeService) AddQuestion(ctx context.Context, question *model.ThemeQuestion) (*model.Theme, error) {
+
+	if question == nil {
+		return nil, model.ErrInvalidThemeQuestion
+	}
+	if err := question.Validate(); err != nil {
+		return nil, err
+	}
+
+	var created *model.ThemeQuestion
+	var theme *model.Theme
+	err := util.SqlTransaction(ctx, s.db, func(tx *sql.Tx) {
+
+		//
+		// check for duplicate
+		//
+
+		alreadyExists := s.themeQuestionStore.IsMusicInTheme(ctx, tx, question.ThemeId, question.MusicId)
+		if alreadyExists {
+			panic(model.ErrMusicAlreadyInTheme)
+		}
+
+		//
+		// create question
+		//
+
+		created = s.themeQuestionStore.Create(ctx, tx, question)
+
+		//
+		// retrieve theme
+		//
+
+		theme = s.retrieveTheme(ctx, tx, created.ThemeId)
+	})
+
+	if err != nil {
+		s.logger.Info(fmt.Sprintf("[ KO ] add question to theme %d", question.ThemeId), zap.Error(err))
+		return nil, err
+	}
+	s.logger.Info(fmt.Sprintf("[ OK ] add question %d to theme %d", created.Id, created.ThemeId), zap.Object("theme", theme))
+	return theme, nil
+}
+
+// //////////////////////////////////////////////////
+// update question
+
+func (s *themeService) UpdateQuestion(ctx context.Context, question *model.ThemeQuestion) (*model.Theme, error) {
+
+	if question == nil {
+		return nil, model.ErrInvalidThemeQuestion
+	}
+	if err := question.Validate(); err != nil {
+		return nil, err
+	}
+
+	var updated *model.ThemeQuestion
+	var theme *model.Theme
+	err := util.SqlTransaction(ctx, s.db, func(tx *sql.Tx) {
+
+		//
+		// check for invariant
+		//
+
+		orig := s.themeQuestionStore.Retrieve(ctx, tx, question.Id)
+		if orig.ThemeId != question.ThemeId {
+			panic(model.ErrCouldNotUpdateThemeId)
+		}
+		if orig.MusicId != question.MusicId {
+			panic(model.ErrCouldNotUpdateMusicId)
+		}
+
+		//
+		// update question
+		//
+
+		updated = s.themeQuestionStore.Update(ctx, tx, question)
+
+		//
+		// retrueve theme
+		//
+
+		theme = s.retrieveTheme(ctx, tx, updated.ThemeId)
+	})
+
+	if err != nil {
+		s.logger.Info(fmt.Sprintf("[ KO ] update question in theme %d", question.ThemeId), zap.Error(err))
+		return nil, err
+	}
+	s.logger.Info(fmt.Sprintf("[ OK ] update question %d in theme %d", updated.Id, updated.ThemeId), zap.Object("theme", theme))
+	return theme, nil
+}
+
+// //////////////////////////////////////////////////
+// remove question
+
+func (s *themeService) RemoveQuestion(ctx context.Context, id model.ThemeId, questionId model.ThemeQuestionId) (*model.Theme, error) {
+
+	var theme *model.Theme
+	err := util.SqlTransaction(ctx, s.db, func(tx *sql.Tx) {
+
+		//
+		// delete question
+		//
+
+		s.themeQuestionStore.Delete(ctx, tx, &model.ThemeQuestionFilter{ThemeQuestionId: questionId})
+
+		//
+		// retrieve theme
+		//
+
+		theme = s.retrieveTheme(ctx, tx, id)
+
+	})
+
+	if err != nil {
+		s.logger.Info(fmt.Sprintf("[ KO ] delete question %d from theme %d", questionId, id), zap.Error(err))
+		return nil, err
+	}
+	s.logger.Info(fmt.Sprintf("[ OK ] delete question %d from theme %d", questionId, id), zap.Object("theme", theme))
+	return theme, nil
 }
 
 // //////////////////////////////////////////////////

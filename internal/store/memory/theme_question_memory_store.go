@@ -97,6 +97,22 @@ func (s *themeQuestionMemoryStore) CountByTheme(ctx context.Context, _ *sql.Tx) 
 	return count
 }
 
+func (s *themeQuestionMemoryStore) IsMusicInTheme(ctx context.Context, tx *sql.Tx, themeId model.ThemeId, musicId model.MusicId) bool {
+	s.themeQuestionsLock.Lock()
+	defer s.themeQuestionsLock.Unlock()
+
+	if musicId == 0 {
+		panic(model.ErrInvalidMusicId)
+	}
+
+	for _, question := range s.themeQuestions {
+		if question.ThemeId == themeId && question.MusicId == musicId {
+			return true
+		}
+	}
+	return false
+}
+
 func (s *themeQuestionMemoryStore) IsMusicUsed(ctx context.Context, tx *sql.Tx, musicId model.MusicId) bool {
 	s.themeQuestionsLock.Lock()
 	defer s.themeQuestionsLock.Unlock()
