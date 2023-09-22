@@ -12,7 +12,9 @@ trap _term SIGINT
 
 PHASE=$( echo ${1:-loc} | awk '{ print tolower($0); }' )
 
-ENV_FILE="$( dirname $0 )/${PHASE}.env"
+SCRIPT_DIR=$( dirname $0 )
+BIN_DIR=$( cd "${SCRIPT_DIR}/../bin"; pwd )
+ENV_FILE="${SCRIPT_DIR}/${PHASE}.env"
 if [[ ! -e "${ENV_FILE}" ]]; then
     >&2 echo -e "\033[0;31m missing env file for ${PHASE}! ( ${ENV_FILE} ) \033[0m"
     exit 1
@@ -25,8 +27,8 @@ set +o allexport
 >&2 echo "~> PHASE = ${PHASE}"
 >&2 echo "~> ENV_FILE = ${ENV_FILE}"
 
->&2 echo "~> ./bin/${APP_NAME} &"
-./bin/${APP_NAME} &
+>&2 echo "~> ${BIN_DIR}/${APP_NAME} &"
+${BIN_DIR}/${APP_NAME} &
 
 child=$!
 >&2 echo "~> wait \"$child\""
