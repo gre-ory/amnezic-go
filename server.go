@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"embed"
 	"fmt"
-	"io/fs"
 	"net"
 	"net/http"
 	"os"
@@ -102,16 +101,22 @@ func (s *FrontendServer) Run(ctx context.Context) {
 		s.logger.Warn("missing FRONTEND_ADDRESS")
 		return
 	}
+	frontendDirectory := os.Getenv("FRONTEND_DIRECTORY")
+	if frontendDirectory == "" {
+		s.logger.Warn("missing FRONTEND_DIRECTORY")
+		return
+	}
 
 	//
 	// file server
 	//
 
-	rootFS, err := fs.Sub(frontendFS, frontendRootPath)
-	if err != nil {
-		s.logger.Fatal("failed to serve frontend files", zap.Error(err))
-	}
-	fileServer := http.FileServer(http.FS(rootFS))
+	// rootFS, err := fs.Sub(frontendFS, frontendRootPath)
+	// if err != nil {
+	// 	s.logger.Fatal("failed to serve frontend files", zap.Error(err))
+	// }
+	// fileServer := http.FileServer(http.FS(rootFS))
+	fileServer := http.FileServer(http.Dir(frontendDirectory))
 
 	//
 	// server
@@ -120,7 +125,7 @@ func (s *FrontendServer) Run(ctx context.Context) {
 	server := http.Server{
 		Addr: address,
 		Handler: WithRequestLogging(s.logger)(
-			fileServer,
+			http.StripPrefix("/amnezic", fileServer),
 		),
 		BaseContext: func(net.Listener) context.Context {
 			return ctx
@@ -128,7 +133,7 @@ func (s *FrontendServer) Run(ctx context.Context) {
 	}
 
 	s.logger.Info(fmt.Sprintf("starting frontend server on %s", server.Addr))
-	err = server.ListenAndServe()
+	err := server.ListenAndServe()
 	if err != nil {
 		s.logger.Fatal("failed to start backend server", zap.Error(err))
 	}
