@@ -36,6 +36,11 @@ export APPLICATION_VERSION=$( cd ${SCRIPT_DIR} > /dev/null 2> /dev/null ; git de
 >&2 echo "~> APPLICATION_NAME = ${APPLICATION_NAME}"
 >&2 echo "~> APPLICATION_VERSION = ${APPLICATION_VERSION}"
 
+<<<<<<< HEAD
+=======
+exit 1
+
+>>>>>>> origin/master
 >&2 echo "~> ${BIN_DIR}/${APP_NAME} &"
 ${BIN_DIR}/${APP_NAME} &
 
