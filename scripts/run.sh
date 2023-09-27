@@ -30,6 +30,14 @@ set +o allexport
 >&2 echo "~> BACKEND_ADDRESS = ${BACKEND_ADDRESS}"
 >&2 echo "~> LOG_FILE = ${LOG_FILE}"
 
+export APPLICATION_NAME=amnezic
+export APPLICATION_VERSION=$( cd ${SCRIPT_DIR} > /dev/null 2> /dev/null ; git describe --exact-match --tags $( git log -n1 --pretty='%h' ) 2> /dev/null || echo "v9.9.9"; cd - > /dev/null 2> /dev/null )
+
+>&2 echo "~> APPLICATION_NAME = ${APPLICATION_NAME}"
+>&2 echo "~> APPLICATION_VERSION = ${APPLICATION_VERSION}"
+
+exit 1
+
 >&2 echo "~> ${BIN_DIR}/${APP_NAME} &"
 ${BIN_DIR}/${APP_NAME} &
 
