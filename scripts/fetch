@@ -1,9 +1,10 @@
 #!/bin/bash
 
 TAG=${1}
-if [[ "${TAG}" == "" ]]; then
-    echo "missing tag!"
-    exit 1
+if [[ "${TAG}" == "" || "${TAG}" == "latest" ]]; then    
+    TAG=$( git latest-version )
+elif [[ "${TAG}" == "rollback" || "${TAG}" == "previous" ]]; then
+    TAG=$( git previous-version )
 fi
 
 echo "~> git fetch --all --tags"
