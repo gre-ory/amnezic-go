@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"database/sql"
-	"embed"
 	"fmt"
 	"net"
 	"net/http"
@@ -54,15 +53,10 @@ func main() {
 	//
 
 	var wg sync.WaitGroup
-	wg.Add(2)
+	wg.Add(1)
 
 	go func() {
 		NewBackendServer(logger).Run(ctx)
-		wg.Done()
-	}()
-
-	go func() {
-		NewFrontendServer(logger).Run(ctx)
 		wg.Done()
 	}()
 
@@ -70,73 +64,6 @@ func main() {
 
 	logger.Info("app completed")
 	os.Exit(0)
-}
-
-// //////////////////////////////////////////////////
-// frontend server
-
-var frontendRootPath = "www"
-
-//go:embed www
-var frontendFS embed.FS
-
-type FrontendServer struct {
-	logger *zap.Logger
-}
-
-func NewFrontendServer(logger *zap.Logger) *FrontendServer {
-	return &FrontendServer{
-		logger: logger.With(zap.String("server", "frontend")),
-	}
-}
-
-func (s *FrontendServer) Run(ctx context.Context) {
-
-	//
-	// config
-	//
-
-	address := os.Getenv("FRONTEND_ADDRESS")
-	if address == "" {
-		s.logger.Warn("missing FRONTEND_ADDRESS")
-		return
-	}
-	frontendDirectory := os.Getenv("FRONTEND_DIRECTORY")
-	if frontendDirectory == "" {
-		s.logger.Warn("missing FRONTEND_DIRECTORY")
-		return
-	}
-
-	//
-	// file server
-	//
-
-	// rootFS, err := fs.Sub(frontendFS, frontendRootPath)
-	// if err != nil {
-	// 	s.logger.Fatal("failed to serve frontend files", zap.Error(err))
-	// }
-	// fileServer := http.FileServer(http.FS(rootFS))
-	fileServer := http.FileServer(http.Dir(frontendDirectory))
-
-	//
-	// server
-	//
-
-	server := http.Server{
-		Addr: address,
-		Handler: WithRequestLogging(s.logger)(
-			http.StripPrefix("/amnezic", fileServer),
-		),
-		BaseContext: func(net.Listener) context.Context {
-			return ctx
-		},
-	}
-
-	s.logger.Info(fmt.Sprintf("starting frontend server on %s", server.Addr))
-	err := server.ListenAndServe()
-	if err != nil {
-		s.logger.Fatal("failed to start backend server", zap.Error(err))
-	}
 }
 
 // //////////////////////////////////////////////////
@@ -343,6 +270,9 @@ func WithRequestLogging(logger *zap.Logger) func(http.Handler) http.Handler {
 var whitelistOrigins []string = []string{
 	"http://localhost:3000",
 	"http://localhost:9090",
+	"http://158.178.206.68:8080",
+	"http://158.178.206.68:8081",
+	"http://158.178.206.68:8082",
 }
 
 func AllowCORS(logger *zap.Logger) func(http.Handler) http.Handler {
