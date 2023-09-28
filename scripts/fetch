@@ -1,5 +1,8 @@
 #!/bin/bash
 
+echo "~> git fetch --all --tags"
+git fetch --all --tags
+
 TAG=${1}
 if [[ "${TAG}" == "" || "${TAG}" == "latest" ]]; then    
     TAG=$( git latest-version )
