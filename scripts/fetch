@@ -10,9 +10,6 @@ elif [[ "${TAG}" == "rollback" || "${TAG}" == "previous" ]]; then
     TAG=$( git previous-version )
 fi
 
-echo "~> git fetch --all --tags"
-git fetch --all --tags
-
 echo "~> git what \"${TAG}\""
 git what "${TAG}" > /dev/null 2> /dev/null  || exit 1
 
