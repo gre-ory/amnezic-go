@@ -10,8 +10,11 @@ if [[ "${PHASE}" != "stg" && "${PHASE}" != "prd"  ]]; then
     exit 1
 fi
 
-echo "~> sudo systemctl start amnezic.${PHASE}.service"
-sudo systemctl start amnezic.${PHASE}.service
+echo "~> sudo systemctl daemon-reload"
+sudo systemctl daemon-reload
 
-echo "~> sudo systemctl status amnezic.${PHASE}.service"
-sudo systemctl status amnezic.${PHASE}.service
+echo "~> sudo systemctl start amnezic.be.${PHASE}.service"
+sudo systemctl start amnezic.be.${PHASE}.service
+
+echo "~> sudo systemctl status amnezic.be.${PHASE}.service"
+sudo systemctl status amnezic.be.${PHASE}.service
