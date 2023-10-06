@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"os"
 	"strings"
-	"sync"
 
 	"github.com/gre-ory/amnezic-go/internal/api"
 	"github.com/gre-ory/amnezic-go/internal/client"
@@ -52,17 +51,8 @@ func main() {
 	// servers
 	//
 
-	var wg sync.WaitGroup
-	wg.Add(1)
+	NewBackendServer(logger).Run(ctx)
 
-	go func() {
-		NewBackendServer(logger).Run(ctx)
-		wg.Done()
-	}()
-
-	wg.Wait()
-
-	logger.Info("app completed")
 	os.Exit(0)
 }
 
@@ -130,7 +120,7 @@ func (s *BackendServer) Run(ctx context.Context) {
 
 	gameService := service.NewGameService(s.logger, db, gameStore, gameQuestionStore, musicStore, artistStore, albumStore, themeStore, themeQuestionStore)
 	musicService := service.NewMusicService(s.logger, deezerClient, db, musicStore, albumStore, artistStore, themeStore, themeQuestionStore)
-	themeService := service.NewThemeService(s.logger, db, themeStore, themeQuestionStore, musicStore)
+	themeService := service.NewThemeService(s.logger, db, themeStore, themeQuestionStore, musicStore, artistStore, albumStore)
 
 	//
 	// api
@@ -284,6 +274,7 @@ func AllowCORS(logger *zap.Logger) func(http.Handler) http.Handler {
 				logger.Info(fmt.Sprintf("[COR] OK - Origin: %s", origin))
 				w.Header().Set("Access-Control-Allow-Origin", origin)
 				w.Header().Set("Access-Control-Allow-Methods", "*")
+				w.Header().Set("Access-Control-Allow-Headers", "content-type")
 			} else {
 				logger.Info(fmt.Sprintf("[COR] BLOCKED - Origin: %s", origin))
 			}
