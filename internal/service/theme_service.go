@@ -25,13 +25,15 @@ type ThemeService interface {
 	RemoveQuestion(ctx context.Context, id model.ThemeId, questionId model.ThemeQuestionId) (*model.Theme, error)
 }
 
-func NewThemeService(logger *zap.Logger, db *sql.DB, themeStore store.ThemeStore, themequestionStore store.ThemeQuestionStore, musicStore store.MusicStore) ThemeService {
+func NewThemeService(logger *zap.Logger, db *sql.DB, themeStore store.ThemeStore, themequestionStore store.ThemeQuestionStore, musicStore store.MusicStore, artistStore store.MusicArtistStore, albumStore store.MusicAlbumStore) ThemeService {
 	return &themeService{
 		logger:             logger,
 		db:                 db,
 		themeStore:         themeStore,
 		themeQuestionStore: themequestionStore,
 		musicStore:         musicStore,
+		artistStore:        artistStore,
+		albumStore:         albumStore,
 	}
 }
 
@@ -41,6 +43,8 @@ type themeService struct {
 	themeStore         store.ThemeStore
 	themeQuestionStore store.ThemeQuestionStore
 	musicStore         store.MusicStore
+	artistStore        store.MusicArtistStore
+	albumStore         store.MusicAlbumStore
 }
 
 func (s *themeService) ListThemes(ctx context.Context) ([]*model.ThemeInfo, error) {
@@ -388,9 +392,20 @@ func (s *themeService) RemoveQuestion(ctx context.Context, id model.ThemeId, que
 // attach music
 
 func (s *themeService) AttachMusic(ctx context.Context, tx *sql.Tx) func(question *model.ThemeQuestion) *model.ThemeQuestion {
+	
+	// TODO avoid multiple queries
+	
 	return func(question *model.ThemeQuestion) *model.ThemeQuestion {
 		if question.MusicId != 0 {
 			question.Music = s.musicStore.Retrieve(ctx, tx, question.MusicId)
+			if question.Music != nil {
+				if question.Music.AlbumId != 0 {
+					question.Music.Album = s.albumStore.Retrieve(ctx, tx, question.Music.AlbumId)
+				}
+				if question.Music.ArtistId != 0 {
+					question.Music.Artist = s.artistStore.Retrieve(ctx, tx, question.Music.ArtistId)
+				}
+			}
 		}
 		return question
 	}
