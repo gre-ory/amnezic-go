@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"net/url"
 
 	"github.com/gre-ory/amnezic-go/internal/model"
 	"github.com/gre-ory/amnezic-go/internal/util"
@@ -15,7 +14,7 @@ import (
 // deezer client
 
 type DeezerClient interface {
-	Search(query string, limit int) ([]*model.Music, error)
+	Search(search *model.DeezerSearch) ([]*model.Music, error)
 	GetTrack(trackId model.DeezerMusicId) (*model.Music, error)
 }
 
@@ -32,11 +31,11 @@ type deezerClient struct {
 // //////////////////////////////////////////////////
 // search
 
-func (c *deezerClient) Search(query string, limit int) ([]*model.Music, error) {
+func (c *deezerClient) Search(search *model.DeezerSearch) ([]*model.Music, error) {
 
-	c.logger.Info(fmt.Sprintf("[client] query: %s, limit: %d", query, limit))
+	c.logger.Info(fmt.Sprintf("[client] req: %#v", search))
 
-	url := fmt.Sprintf("https://api.deezer.com/search?q=%s&limit=%d", url.QueryEscape(query), limit)
+	url := fmt.Sprintf("https://api.deezer.com/search%s", search.ComputeParameters())
 	c.logger.Info(fmt.Sprintf("[client] url: %s", url))
 
 	resp, err := http.Get(url)

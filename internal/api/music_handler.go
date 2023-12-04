@@ -46,8 +46,7 @@ func (h *musicHandler) handleSearchMusic(resp http.ResponseWriter, req *http.Req
 
 	ctx := req.Context()
 
-	var query string
-	var limit int
+	var search *model.DeezerSearch
 	var musics []*model.Music
 	var err error
 
@@ -58,18 +57,26 @@ func (h *musicHandler) handleSearchMusic(resp http.ResponseWriter, req *http.Req
 		// decode request
 		//
 
-		query = extractParameter(req, "search")
-		limit = toInt(extractParameter(req, "limit"))
+		limit := toInt(extractParameter(req, "limit"))
 		if limit == 0 {
-			limit = 42
+			limit = 100
 		}
-		h.logger.Info(fmt.Sprintf("[api] search %d musics matching %s", limit, query))
+
+		search = model.NewDeezerSearchRequest().
+			WithQuery(extractParameter(req, "search")).
+			WithAlbum(extractParameter(req, "album")).
+			WithArtist(extractParameter(req, "artist")).
+			WithLabel(extractParameter(req, "label")).
+			WithTrack(extractParameter(req, "artist")).
+			WithLimit(limit)
+
+		h.logger.Info(fmt.Sprintf("[api] search %d musics", limit), zap.Object("search", search))
 
 		//
 		// execute
 		//
 
-		musics, err = h.service.SearchMusic(ctx, query, limit)
+		musics, err = h.service.SearchMusic(ctx, search)
 		if err != nil {
 			break
 		}
@@ -77,7 +84,7 @@ func (h *musicHandler) handleSearchMusic(resp http.ResponseWriter, req *http.Req
 			err = model.ErrMusicNotFound
 			break
 		}
-		h.logger.Info(fmt.Sprintf("[api] found %d musics matching %s", len(musics), query))
+		h.logger.Info(fmt.Sprintf("[api] found %d musics", len(musics)), zap.Object("search", search))
 
 		//
 		// encode success
