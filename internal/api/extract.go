@@ -34,15 +34,19 @@ func toStrings(values string) []string {
 }
 
 func toInt(value string) int {
-	if result, err := strconv.Atoi(value); err == nil {
-		return result
+	if value != "" {
+		if result, err := strconv.Atoi(value); err == nil {
+			return result
+		}
 	}
 	return 0
 }
 
 func toInt64(value string) int64 {
-	if result, err := strconv.ParseInt(value, 10, 64); err == nil {
-		return result
+	if value != "" {
+		if result, err := strconv.ParseInt(value, 10, 64); err == nil {
+			return result
+		}
 	}
 	return 0
 }

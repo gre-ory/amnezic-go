@@ -13,7 +13,8 @@ func TestSearch(t *testing.T) {
 
 	logger := zap.L()
 	deezerClient := client.NewDeezerClient(logger)
-	musics, err := deezerClient.Search("harder better", 1)
+	req := model.NewDeezerSearchRequest().WithQuery("harder better").WithLimit(1)
+	musics, err := deezerClient.Search(req)
 
 	require.Equal(t, nil, err, "wrong error")
 	require.Equal(t, []*model.Music{

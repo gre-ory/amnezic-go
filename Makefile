@@ -27,8 +27,8 @@ Q := @
 
 build:
 	$(Q)CGO_ENABLED=1 GOOS=linux go build $(GO_BUILD_FLAGS) -ldflags "${LDFLAGS}" -o ${SERVER} ${PACKAGE}
-run: build
-	@./scripts/run.sh
+run: build db-up
+	@./scripts/run
 test:
 	$(Q) go test -race ./...
 react:

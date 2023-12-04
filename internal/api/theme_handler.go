@@ -235,6 +235,10 @@ func (h *themeHandler) handleUpdateTheme(resp http.ResponseWriter, req *http.Req
 		if err != nil {
 			break
 		}
+		if themeId != theme.Id {
+			err = model.ErrInvalidThemeId
+			break
+		}
 		h.logger.Info(fmt.Sprintf("[api] update theme %d: %#v", themeId, theme))
 
 		//
@@ -571,6 +575,7 @@ func toTheme(jsonTheme *JsonTheme) *model.Theme {
 		Id:     model.ThemeId(jsonTheme.Id),
 		Title:  jsonTheme.Title,
 		ImgUrl: jsonTheme.ImgUrl,
+		Labels: jsonTheme.Labels,
 	}
 
 	theme.Questions = util.Convert(jsonTheme.Questions, func(jsonQuestion *JsonThemeQuestion) *model.ThemeQuestion {
@@ -618,6 +623,7 @@ func toJsonThemeInfo(theme *model.ThemeInfo) *JsonThemeInfo {
 		Id:         int64(theme.Id),
 		Title:      theme.Title,
 		ImgUrl:     theme.ImgUrl,
+		Labels:     theme.Labels,
 		NbQuestion: theme.NbQuestion,
 	}
 }
@@ -634,6 +640,7 @@ func toJsonTheme(theme *model.Theme) *JsonTheme {
 		Id:     int64(theme.Id),
 		Title:  theme.Title,
 		ImgUrl: theme.ImgUrl,
+		Labels: theme.Labels,
 	}
 
 	if theme.Questions != nil {
@@ -667,10 +674,11 @@ type JsonThemesResponse struct {
 }
 
 type JsonThemeInfo struct {
-	Id         int64  `json:"id,omitempty"`
-	Title      string `json:"title,omitempty"`
-	ImgUrl     string `json:"imgUrl,omitempty"`
-	NbQuestion int    `json:"nbQuestion,omitempty"`
+	Id         int64             `json:"id,omitempty"`
+	Title      string            `json:"title,omitempty"`
+	ImgUrl     string            `json:"imgUrl,omitempty"`
+	Labels     map[string]string `json:"labels,omitempty"`
+	NbQuestion int               `json:"nbQuestion,omitempty"`
 }
 
 type JsonThemeResponse struct {
@@ -682,6 +690,7 @@ type JsonTheme struct {
 	Id        int64                `json:"id,omitempty"`
 	Title     string               `json:"title,omitempty"`
 	ImgUrl    string               `json:"imgUrl,omitempty"`
+	Labels    map[string]string    `json:"labels,omitempty"`
 	Questions []*JsonThemeQuestion `json:"questions,omitempty"`
 }
 

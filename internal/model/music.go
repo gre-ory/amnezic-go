@@ -40,16 +40,22 @@ func (o *Music) Copy() *Music {
 }
 
 func (o *Music) ToThemeQuestion(themeId ThemeId) *ThemeQuestion {
-	var hint string
+	var text string
 	if o.Artist != nil {
-		hint = o.Artist.Name
-	} else if o.Album != nil {
-		hint = hint + " - " + o.Album.Name
+		text = o.Artist.Name
+	}
+	hint := o.Name
+	if o.Album != nil && o.Album.Name != "" {
+		if hint == "" {
+			hint = o.Album.Name
+		} else {
+			hint = hint + " - " + o.Album.Name
+		}
 	}
 	return &ThemeQuestion{
 		ThemeId: themeId,
 		MusicId: o.Id,
-		Text:    o.Name,
+		Text:    text,
 		Hint:    hint,
 	}
 }

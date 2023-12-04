@@ -16,7 +16,7 @@ import (
 // music service
 
 type MusicService interface {
-	SearchMusic(ctx context.Context, query string, limit int) ([]*model.Music, error)
+	SearchMusic(ctx context.Context, search *model.DeezerSearch) ([]*model.Music, error)
 	AddDeezerMusic(ctx context.Context, deezerId model.DeezerMusicId) (*model.Music, error)
 	GetMusic(ctx context.Context, id model.MusicId) (*model.Music, error)
 	UpdateMusic(ctx context.Context, music *model.Music) (*model.Music, error)
@@ -50,8 +50,8 @@ type musicService struct {
 // //////////////////////////////////////////////////
 // search music
 
-func (s *musicService) SearchMusic(ctx context.Context, query string, limit int) ([]*model.Music, error) {
-	return s.deezerClient.Search(query, limit)
+func (s *musicService) SearchMusic(ctx context.Context, search *model.DeezerSearch) ([]*model.Music, error) {
+	return s.deezerClient.Search(search)
 }
 
 // //////////////////////////////////////////////////
@@ -116,6 +116,7 @@ func (s *musicService) AddDeezerMusic(ctx context.Context, deezerId model.Deezer
 		//
 		// create album ( if necessary )
 		//
+
 		s.logger.Info("[DEBUG] music... 2", zap.Object("music", music))
 		if music.Album != nil && music.Album.DeezerId != 0 {
 			s.logger.Info(fmt.Sprintf("[DEBUG] retrieve album from deezer id %d", music.Album.DeezerId))
