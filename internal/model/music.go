@@ -45,12 +45,8 @@ func (o *Music) ToThemeQuestion(themeId ThemeId) *ThemeQuestion {
 		text = o.Artist.Name
 	}
 	hint := o.Name
-	if o.Album != nil && o.Album.Name != "" {
-		if hint == "" {
-			hint = o.Album.Name
-		} else {
-			hint = hint + " - " + o.Album.Name
-		}
+	if hint == "" && o.Album != nil && o.Album.Name != "" {
+		hint = o.Album.Name
 	}
 	return &ThemeQuestion{
 		ThemeId: themeId,
