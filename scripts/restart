@@ -10,6 +10,10 @@ if [[ "${PHASE}" != "stg" && "${PHASE}" != "prd"  ]]; then
     exit 1
 fi
 
+SCRIPT_DIR=$( dirname $0 )
+echo "~> ${SCRIPT_DIR}/goose.sh ${PHASE}"
+${SCRIPT_DIR}/goose.sh ${PHASE}
+
 echo "~> sudo systemctl daemon-reload"
 sudo systemctl daemon-reload
 
