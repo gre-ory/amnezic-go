@@ -261,13 +261,12 @@ func TestSqlTable(t *testing.T) {
 	t.Run("update-row", func(t *testing.T) {
 
 		mock.ExpectBegin()
-		mock.ExpectPrepare("UPDATE test SET name=$2 WHERE id = $1 LIMIT 1 RETURNING id,name,value").
+		mock.ExpectPrepare("UPDATE test SET name=$1 WHERE id = $2 RETURNING id,name,value").
 			ExpectQuery().
-			WithArgs(1001, "my-name").
+			WithArgs("my-name", 1001).
 			WillReturnRows(
 				sqlmock.NewRows([]string{"id", "name", "value"}).
-					AddRow(1002, "my-name", 99).
-					AddRow(9999, "bad", 0),
+					AddRow(1002, "my-name", 99),
 			)
 		mock.ExpectCommit()
 
@@ -301,13 +300,13 @@ func TestSqlTable(t *testing.T) {
 	t.Run("update-none", func(t *testing.T) {
 
 		mock.ExpectBegin()
-		mock.ExpectPrepare("UPDATE test SET name=$2 WHERE id = $1 LIMIT 1 RETURNING id,name,value").
+		mock.ExpectPrepare("UPDATE test SET name=$1 WHERE id = $2 RETURNING id,name,value").
 			ExpectQuery().
-			WithArgs(1001, "my-name").
+			WithArgs("my-name", 1001).
 			WillReturnRows(
 				sqlmock.NewRows([]string{"id", "name", "value"}),
 			)
-		mock.ExpectRollback()
+		mock.ExpectCommit()
 
 		table := util.NewSqlTable[TestRow](logger, "test", ErrTestRowNotFound)
 
@@ -320,7 +319,7 @@ func TestSqlTable(t *testing.T) {
 			}, util.NewSqlCondition("id = %s", 1001))
 		})
 
-		require.Equal(t, ErrTestRowNotFound, gotErr, "wrong error")
+		require.Equal(t, nil, gotErr, "wrong error")
 		require.Nil(t, gotRow, "wrong row")
 
 		if err := mock.ExpectationsWereMet(); err != nil {

@@ -14,8 +14,11 @@ import (
 // deezer client
 
 type DeezerClient interface {
-	Search(search *model.DeezerSearch) ([]*model.Music, error)
-	GetTrack(trackId model.DeezerMusicId) (*model.Music, error)
+	SearchMusic(search *model.SearchMusicRequest) ([]*model.Music, error)
+	GetMusic(trackId model.DeezerMusicId) (*model.Music, error)
+
+	SearchPlaylist(search *model.SearchPlaylistRequest) ([]*model.Playlist, error)
+	GetPlaylist(id model.DeezerPlaylistId, withTracks bool) (*model.Playlist, error)
 }
 
 func NewDeezerClient(logger *zap.Logger) DeezerClient {
@@ -29,38 +32,38 @@ type deezerClient struct {
 }
 
 // //////////////////////////////////////////////////
-// search
+// search musics
 
-func (c *deezerClient) Search(search *model.DeezerSearch) ([]*model.Music, error) {
+func (c *deezerClient) SearchMusic(search *model.SearchMusicRequest) ([]*model.Music, error) {
 
-	c.logger.Info(fmt.Sprintf("[client] req: %#v", search))
+	c.logger.Info(fmt.Sprintf("[client] search-music: req=%#v", search))
 
-	url := fmt.Sprintf("https://api.deezer.com/search%s", search.ComputeParameters())
-	c.logger.Info(fmt.Sprintf("[client] url: %s", url))
+	url := fmt.Sprintf("https://api.deezer.com/search/track%s", search.ComputeParameters())
+	c.logger.Info(fmt.Sprintf("[client] search-music: url=%s", url))
 
 	resp, err := http.Get(url)
 	if err != nil {
-		c.logger.Info(fmt.Sprintf("[client] >>> error: %s", err.Error()), zap.Error(err))
+		c.logger.Info(fmt.Sprintf("[client] search-music: >>> error: %s", err.Error()), zap.Error(err))
 		return nil, err
 	}
 	defer resp.Body.Close()
 
-	var jsonSearch JsonDeezerSearch
+	var jsonSearch JsonDeezerSearchTracks
 	err = json.NewDecoder(resp.Body).Decode(&jsonSearch)
 	if err != nil {
-		c.logger.Info(fmt.Sprintf("[client] >>> error: %s", err.Error()), zap.Error(err))
+		c.logger.Info(fmt.Sprintf("[client] search-music: >>> error: %s", err.Error()), zap.Error(err))
 		return nil, err
 	}
 
-	c.logger.Info(fmt.Sprintf("[client] tracks: %d", len(jsonSearch.Tracks)))
+	c.logger.Info(fmt.Sprintf("[client] search-music: %d track(s)", len(jsonSearch.Tracks)))
 
 	return util.Convert(jsonSearch.Tracks, toMusic), nil
 }
 
 // //////////////////////////////////////////////////
-// track
+// get music
 
-func (c *deezerClient) GetTrack(trackId model.DeezerMusicId) (*model.Music, error) {
+func (c *deezerClient) GetMusic(trackId model.DeezerMusicId) (*model.Music, error) {
 
 	url := fmt.Sprintf("https://api.deezer.com/track/%d", trackId)
 	resp, err := http.Get(url)
@@ -76,6 +79,77 @@ func (c *deezerClient) GetTrack(trackId model.DeezerMusicId) (*model.Music, erro
 	}
 
 	return toMusic(&jsonTrack), nil
+}
+
+// //////////////////////////////////////////////////
+// search playlists
+
+func (c *deezerClient) SearchPlaylist(search *model.SearchPlaylistRequest) ([]*model.Playlist, error) {
+
+	c.logger.Info(fmt.Sprintf("[client] search-playlist: req=%#v", search))
+
+	playlistId := search.GetDeezerPlaylistId()
+	if playlistId != 0 {
+		playlist, err := c.GetPlaylist(playlistId, false /* with tracks */)
+		if playlist != nil && err == nil {
+			return []*model.Playlist{playlist}, nil
+		}
+		c.logger.Info(fmt.Sprintf("[client] search-playlist: not able to fetch playlist %d >>> fallback to normal search", playlistId), zap.Error(err))
+	}
+
+	url := fmt.Sprintf("https://api.deezer.com/search/playlist%s", search.ComputeParameters())
+	c.logger.Info(fmt.Sprintf("[client] search-playlist: url=%s", url))
+
+	resp, err := http.Get(url)
+	if err != nil {
+		c.logger.Info(fmt.Sprintf("[client] search-playlist: >>> error: %s", err.Error()), zap.Error(err))
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	var jsonResponse JsonDeezerSearchPlaylists
+	err = json.NewDecoder(resp.Body).Decode(&jsonResponse)
+	if err != nil {
+		c.logger.Info(fmt.Sprintf("[client] search-playlist: >>> error: %s", err.Error()), zap.Error(err))
+		return nil, err
+	}
+
+	c.logger.Info(fmt.Sprintf("[client] search-playlist: %d playlist(s)", len(jsonResponse.Playlists)))
+
+	return util.Convert(jsonResponse.Playlists, toPlaylist), nil
+}
+
+// //////////////////////////////////////////////////
+// get playlist
+
+func (c *deezerClient) GetPlaylist(id model.DeezerPlaylistId, withTracks bool) (*model.Playlist, error) {
+
+	c.logger.Info(fmt.Sprintf("[client] get-playlist: id=%d, withTracks=%t", id, withTracks))
+
+	url := fmt.Sprintf("https://api.deezer.com/playlist/%d", id)
+	c.logger.Info(fmt.Sprintf("[client] get-playlist: url=%s", url))
+
+	resp, err := http.Get(url)
+	if err != nil {
+		c.logger.Info(fmt.Sprintf("[client] get-playlist: >>> error: %s", err.Error()), zap.Error(err))
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	var jsonResponse JsonDeezerPlaylist
+	err = json.NewDecoder(resp.Body).Decode(&jsonResponse)
+	if err != nil {
+		c.logger.Info(fmt.Sprintf("[client] get-playlist: >>> error: %s", err.Error()), zap.Error(err))
+		return nil, err
+	}
+
+	c.logger.Info(fmt.Sprintf("[client] get-playlist: title=%s", jsonResponse.Title))
+
+	playlist := toPlaylist(&jsonResponse)
+	if withTracks && jsonResponse.Tracks != nil {
+		playlist.Musics = util.Convert(jsonResponse.Tracks.Tracks, toMusic)
+	}
+	return playlist, nil
 }
 
 // //////////////////////////////////////////////////
@@ -113,10 +187,27 @@ func toAlbum(jsonAlbum *JsonDeezerAlbum) *model.MusicAlbum {
 	}
 }
 
+func toPlaylist(jsonPlaylist *JsonDeezerPlaylist) *model.Playlist {
+	playlist := &model.Playlist{
+		DeezerId:    model.DeezerPlaylistId(jsonPlaylist.Id),
+		Name:        jsonPlaylist.Title,
+		Public:      jsonPlaylist.Public,
+		PlaylistUrl: jsonPlaylist.Link,
+		ImgUrl:      jsonPlaylist.Picture,
+		NbMusics:    jsonPlaylist.NbTracks,
+	}
+	if jsonPlaylist.Creator != nil {
+		playlist.User = jsonPlaylist.Creator.Name
+	} else if jsonPlaylist.User != nil {
+		playlist.User = jsonPlaylist.User.Name
+	}
+	return playlist
+}
+
 // //////////////////////////////////////////////////
 // json
 
-type JsonDeezerSearch struct {
+type JsonDeezerSearchTracks struct {
 	Tracks []*JsonDeezerTrack `json:"data"`
 }
 
@@ -155,4 +246,35 @@ type JsonDeezerAlbum struct {
 	Cover string `json:"cover"`
 	Type  string `json:"type"`
 	Role  string `json:"role"`
+}
+
+type JsonDeezerSearchPlaylists struct {
+	Playlists []*JsonDeezerPlaylist `json:"data"`
+}
+
+type JsonDeezerPlaylist struct {
+	Id        int64                     `json:"id"`
+	Title     string                    `json:"title"`
+	Public    bool                      `json:"public"`
+	NbTracks  int                       `json:"nb_tracks"`
+	Link      string                    `json:"link"`
+	Picture   string                    `json:"picture"`
+	TrackList string                    `json:"tracklist"`
+	Creator   *JsonDeezerCreator        `json:"creator"`
+	User      *JsonDeezerUser           `json:"user"`
+	Tracks    *JsonDeezerPlaylistTracks `json:"tracks"`
+}
+
+type JsonDeezerCreator struct {
+	Id   int64  `json:"id"`
+	Name string `json:"name"`
+}
+
+type JsonDeezerUser struct {
+	Id   int64  `json:"id"`
+	Name string `json:"name"`
+}
+
+type JsonDeezerPlaylistTracks struct {
+	Tracks []*JsonDeezerTrack `json:"data"`
 }

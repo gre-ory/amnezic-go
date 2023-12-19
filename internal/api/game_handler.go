@@ -68,6 +68,14 @@ func (h *gameHandler) handleCreateGame(resp http.ResponseWriter, req *http.Reque
 				),
 				func(s model.Source) bool { return s != "" },
 			),
+			ThemeIds: util.Filter(
+				util.Convert(
+					toStrings(extractParameter(req, "theme_ids")),
+					model.ToThemeId,
+				),
+				func(id model.ThemeId) bool { return id != 0 },
+			),
+			DeezerPlaylistId: model.DeezerPlaylistId(toInt64(extractParameter(req, "deezer_playlist_id"))),
 		}
 		// CLEAN
 		if len(settings.Sources) == 0 {

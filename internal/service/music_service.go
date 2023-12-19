@@ -16,11 +16,15 @@ import (
 // music service
 
 type MusicService interface {
-	SearchMusic(ctx context.Context, search *model.DeezerSearch) ([]*model.Music, error)
+	SearchDeezerMusic(ctx context.Context, search *model.SearchMusicRequest) ([]*model.Music, error)
 	AddDeezerMusic(ctx context.Context, deezerId model.DeezerMusicId) (*model.Music, error)
+
 	GetMusic(ctx context.Context, id model.MusicId) (*model.Music, error)
 	UpdateMusic(ctx context.Context, music *model.Music) (*model.Music, error)
 	DeleteMusic(ctx context.Context, id model.MusicId) error
+
+	SearchDeezerPlaylist(ctx context.Context, search *model.SearchPlaylistRequest) ([]*model.Playlist, error)
+	GetDeezerPlaylist(ctx context.Context, id model.DeezerPlaylistId) (*model.Playlist, error)
 }
 
 func NewMusicService(logger *zap.Logger, deezerClient client.DeezerClient, db *sql.DB, musicStore store.MusicStore, albumStore store.MusicAlbumStore, artistStore store.MusicArtistStore, themeStore store.ThemeStore, themeQuestionStore store.ThemeQuestionStore) MusicService {
@@ -48,10 +52,10 @@ type musicService struct {
 }
 
 // //////////////////////////////////////////////////
-// search music
+// search deezer music
 
-func (s *musicService) SearchMusic(ctx context.Context, search *model.DeezerSearch) ([]*model.Music, error) {
-	return s.deezerClient.Search(search)
+func (s *musicService) SearchDeezerMusic(ctx context.Context, search *model.SearchMusicRequest) ([]*model.Music, error) {
+	return s.deezerClient.SearchMusic(search)
 }
 
 // //////////////////////////////////////////////////
@@ -74,7 +78,7 @@ func (s *musicService) AddDeezerMusic(ctx context.Context, deezerId model.Deezer
 
 	// TODO NOT optimal to search on deezer if it already exists in DB
 	s.logger.Info(fmt.Sprintf("[DEBUG] search music %d from deezer", deezerId))
-	music, err = s.deezerClient.GetTrack(deezerId)
+	music, err = s.deezerClient.GetMusic(deezerId)
 	if err != nil {
 		return nil, err
 	}
@@ -303,4 +307,18 @@ func (s *musicService) AttachTheme(ctx context.Context, tx *sql.Tx) func(questio
 		}
 		return question
 	}
+}
+
+// //////////////////////////////////////////////////
+// search playlist
+
+func (s *musicService) SearchDeezerPlaylist(ctx context.Context, search *model.SearchPlaylistRequest) ([]*model.Playlist, error) {
+	return s.deezerClient.SearchPlaylist(search)
+}
+
+// //////////////////////////////////////////////////
+// get playlist
+
+func (s *musicService) GetDeezerPlaylist(ctx context.Context, id model.DeezerPlaylistId) (*model.Playlist, error) {
+	return s.deezerClient.GetPlaylist(id, true /* with tracks */)
 }

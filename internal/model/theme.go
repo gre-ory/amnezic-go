@@ -16,6 +16,10 @@ func (i ThemeId) String() string {
 	return fmt.Sprintf("%d", i)
 }
 
+func ToThemeId(value string) ThemeId {
+	return ThemeId(util.StrToInt64(value))
+}
+
 // //////////////////////////////////////////////////
 // theme
 

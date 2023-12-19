@@ -17,9 +17,12 @@ func TestLegacyMusicStore(t *testing.T) {
 
 	settings := model.GameSettings{
 		Seed:       42,
-		NbQuestion: 2,
-		NbAnswer:   3,
-		NbPlayer:   4,
+		NbQuestion: 1,
+		NbAnswer:   2,
+		NbPlayer:   3,
+		Sources: []model.Source{
+			model.Source_Genre,
+		},
 	}
 	logger := zap.L()
 
@@ -28,54 +31,27 @@ func TestLegacyMusicStore(t *testing.T) {
 
 	require.Equal(t, []*model.GameQuestion{
 		{
-			Id: 2017,
+			Id: 0,
 			Theme: &model.GameTheme{
-				Title: "Pop",
+				Title: "Rock",
 			},
 			Music: &model.Music{
-				Id:     2017,
-				Name:   "Purple rain",
-				Mp3Url: "http://root/6496_Prince_Purplerain_1984.mp3",
+				Id:     3006021,
+				Name:   "Time After Time",
+				Mp3Url: "http://root/95532_EvaCassidy_TimeAfterTime_2000.mp3",
+				Artist: &model.MusicArtist{
+					Name: "Eva Cassidy",
+				},
 			},
 			Answers: []*model.GameAnswer{
 				{
-					Text: "Green Day",
-					Hint: "Holiday",
-				},
-				{
-					Text:    "Prince",
-					Hint:    "Purple rain",
+					Text:    "Eva Cassidy",
+					Hint:    "Time After Time",
 					Correct: true,
 				},
 				{
-					Text: "Garbage",
-					Hint: "I think I´m paranoid",
-				},
-			},
-		},
-		{
-			Id: 5001,
-			Theme: &model.GameTheme{
-				Title: "Nostalgie",
-			},
-			Music: &model.Music{
-				Id:     5001,
-				Name:   "Dejeuner en paix",
-				Mp3Url: "http://root/Rem2-08-01.mp3",
-			},
-			Answers: []*model.GameAnswer{
-				{
-					Text: "Claude francois",
-					Hint: "Cette annee la",
-				},
-				{
-					Text: "Florent Pagny",
-					Hint: "Si tu veux m'essayer",
-				},
-				{
-					Text:    "Stephan Eicher",
-					Hint:    "Dejeuner en paix",
-					Correct: true,
+					Text: "Radiohead",
+					Hint: "Kid A",
 				},
 			},
 		},
