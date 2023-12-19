@@ -9,9 +9,9 @@ import (
 )
 
 // //////////////////////////////////////////////////
-// deezer search request
+// search music request
 
-type DeezerSearch struct {
+type SearchMusicRequest struct {
 	query  string
 	artist string
 	album  string
@@ -21,7 +21,7 @@ type DeezerSearch struct {
 	strict bool
 }
 
-func (o *DeezerSearch) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+func (o *SearchMusicRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if o.query != "" {
 		enc.AddString("query", o.query)
 	}
@@ -49,41 +49,41 @@ func (o *DeezerSearch) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 // //////////////////////////////////////////////////
 // builder
 
-func NewDeezerSearchRequest() *DeezerSearch {
-	return &DeezerSearch{}
+func NewSearchMusicRequest() *SearchMusicRequest {
+	return &SearchMusicRequest{}
 }
 
-func (r *DeezerSearch) WithQuery(query string) *DeezerSearch {
+func (r *SearchMusicRequest) WithQuery(query string) *SearchMusicRequest {
 	r.query = query
 	return r
 }
 
-func (r *DeezerSearch) WithArtist(artist string) *DeezerSearch {
+func (r *SearchMusicRequest) WithArtist(artist string) *SearchMusicRequest {
 	r.artist = artist
 	return r
 }
 
-func (r *DeezerSearch) WithAlbum(album string) *DeezerSearch {
+func (r *SearchMusicRequest) WithAlbum(album string) *SearchMusicRequest {
 	r.album = album
 	return r
 }
 
-func (r *DeezerSearch) WithTrack(track string) *DeezerSearch {
+func (r *SearchMusicRequest) WithTrack(track string) *SearchMusicRequest {
 	r.track = track
 	return r
 }
 
-func (r *DeezerSearch) WithLabel(label string) *DeezerSearch {
+func (r *SearchMusicRequest) WithLabel(label string) *SearchMusicRequest {
 	r.label = label
 	return r
 }
 
-func (r *DeezerSearch) WithLimit(limit int) *DeezerSearch {
+func (r *SearchMusicRequest) WithLimit(limit int) *SearchMusicRequest {
 	r.limit = limit
 	return r
 }
 
-func (r *DeezerSearch) WithStrict(strict bool) *DeezerSearch {
+func (r *SearchMusicRequest) WithStrict(strict bool) *SearchMusicRequest {
 	r.strict = strict
 	return r
 }
@@ -91,7 +91,7 @@ func (r *DeezerSearch) WithStrict(strict bool) *DeezerSearch {
 // //////////////////////////////////////////////////
 // compute query
 
-func (r *DeezerSearch) ComputeQuery() string {
+func (r *SearchMusicRequest) ComputeQuery() string {
 	parts := []string{}
 	if r.query != "" {
 		parts = append(parts, r.query)
@@ -111,7 +111,7 @@ func (r *DeezerSearch) ComputeQuery() string {
 	return strings.Join(parts, " ")
 }
 
-func (r *DeezerSearch) ComputeParameters() string {
+func (r *SearchMusicRequest) ComputeParameters() string {
 	parts := []string{}
 	query := r.ComputeQuery()
 	if query != "" {

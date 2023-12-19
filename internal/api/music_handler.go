@@ -32,7 +32,7 @@ type musicHandler struct {
 // register
 
 func (h *musicHandler) RegisterRoutes(router *httprouter.Router) {
-	router.HandlerFunc(http.MethodGet, "/api/music", h.handleSearchMusic)
+	router.HandlerFunc(http.MethodGet, "/api/deezer/music", h.handleSearchDeezerMusic)
 	router.HandlerFunc(http.MethodPut, "/api/music/new", h.handleCreateMusic)
 	router.HandlerFunc(http.MethodGet, "/api/music/:music_id", h.handleRetrieveMusic)
 	router.HandlerFunc(http.MethodPost, "/api/music/:music_id", h.handleUpdateMusic)
@@ -42,11 +42,11 @@ func (h *musicHandler) RegisterRoutes(router *httprouter.Router) {
 // //////////////////////////////////////////////////
 // search
 
-func (h *musicHandler) handleSearchMusic(resp http.ResponseWriter, req *http.Request) {
+func (h *musicHandler) handleSearchDeezerMusic(resp http.ResponseWriter, req *http.Request) {
 
 	ctx := req.Context()
 
-	var search *model.DeezerSearch
+	var search *model.SearchMusicRequest
 	var musics []*model.Music
 	var err error
 
@@ -62,7 +62,7 @@ func (h *musicHandler) handleSearchMusic(resp http.ResponseWriter, req *http.Req
 			limit = 100
 		}
 
-		search = model.NewDeezerSearchRequest().
+		search = model.NewSearchMusicRequest().
 			WithQuery(extractParameter(req, "search")).
 			WithAlbum(extractParameter(req, "album")).
 			WithArtist(extractParameter(req, "artist")).
@@ -76,7 +76,7 @@ func (h *musicHandler) handleSearchMusic(resp http.ResponseWriter, req *http.Req
 		// execute
 		//
 
-		musics, err = h.service.SearchMusic(ctx, search)
+		musics, err = h.service.SearchDeezerMusic(ctx, search)
 		if err != nil {
 			break
 		}

@@ -39,20 +39,35 @@ func (o *Music) Copy() *Music {
 	}
 }
 
-func (o *Music) ToThemeQuestion(themeId ThemeId) *ThemeQuestion {
-	var text string
+func (o *Music) GetDefaultAnswerText() string {
 	if o.Artist != nil {
-		text = o.Artist.Name
+		return o.Artist.Name
 	}
+	return ""
+}
+
+func (o *Music) GetDefaultAnswerHint() string {
 	hint := o.Name
 	if hint == "" && o.Album != nil && o.Album.Name != "" {
 		hint = o.Album.Name
 	}
+	return hint
+}
+
+func (o *Music) ToGameAnswer(correct bool) *GameAnswer {
+	return &GameAnswer{
+		Text:    o.GetDefaultAnswerText(),
+		Hint:    o.GetDefaultAnswerHint(),
+		Correct: correct,
+	}
+}
+
+func (o *Music) ToThemeQuestion(themeId ThemeId) *ThemeQuestion {
 	return &ThemeQuestion{
 		ThemeId: themeId,
 		MusicId: o.Id,
-		Text:    text,
-		Hint:    hint,
+		Text:    o.GetDefaultAnswerText(),
+		Hint:    o.GetDefaultAnswerHint(),
 	}
 }
 

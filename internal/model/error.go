@@ -34,4 +34,7 @@ var (
 	ErrInvalidThemeQuestionHint = fmt.Errorf("invalid theme question hint")
 	ErrCouldNotUpdateThemeId    = fmt.Errorf("could not update theme id")
 	ErrCouldNotUpdateMusicId    = fmt.Errorf("could not update music id")
+	ErrEmptyPlaylist            = fmt.Errorf("empty playlist")
+	ErrInvalidPlaylistId        = fmt.Errorf("invalid playslist id")
+	ErrPlaylistNotFound         = fmt.Errorf("playlist not found")
 )

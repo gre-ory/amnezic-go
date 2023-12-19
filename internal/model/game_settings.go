@@ -9,12 +9,21 @@ import (
 // game settings
 
 type GameSettings struct {
-	Seed       int64
-	NbQuestion int
-	NbAnswer   int
-	NbPlayer   int
-	Sources    []Source
-	ThemeIds   []ThemeId
+	Seed             int64
+	NbQuestion       int
+	NbAnswer         int
+	NbPlayer         int
+	Sources          []Source
+	ThemeIds         []ThemeId
+	DeezerPlaylistId DeezerPlaylistId
+}
+
+func (o *GameSettings) UseDeezerPlaylist() bool {
+	if o.DeezerPlaylistId == 0 {
+		return false
+	}
+	_, ok := util.FindIf(o.Sources, Source.IsDeezer)
+	return ok
 }
 
 func (o *GameSettings) UseStore() bool {
@@ -27,8 +36,15 @@ func (o *GameSettings) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	enc.AddInt("nb-question", o.NbQuestion)
 	enc.AddInt("nb-answer", o.NbAnswer)
 	enc.AddInt("nb-player", o.NbPlayer)
-	enc.AddString("sources", util.Join(o.Sources, Source.String))
-	enc.AddString("theme-ids", util.Join(o.ThemeIds, ThemeId.String))
+	if len(o.Sources) > 0 {
+		enc.AddString("sources", util.Join(o.Sources, Source.String))
+	}
+	if len(o.ThemeIds) > 0 {
+		enc.AddString("theme-ids", util.Join(o.ThemeIds, ThemeId.String))
+	}
+	if o.DeezerPlaylistId != 0 {
+		enc.AddInt64("deezer-playlist-id", int64(o.DeezerPlaylistId))
+	}
 	return nil
 }
 

@@ -4,7 +4,9 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"math/rand"
 
+	"github.com/gre-ory/amnezic-go/internal/client"
 	"github.com/gre-ory/amnezic-go/internal/model"
 	"github.com/gre-ory/amnezic-go/internal/store"
 	"github.com/gre-ory/amnezic-go/internal/util"
@@ -20,7 +22,7 @@ type GameService interface {
 	DeleteGame(ctx context.Context, id model.GameId) error
 }
 
-func NewGameService(logger *zap.Logger, db *sql.DB, gameStore store.GameStore, gameQuestionStore store.GameQuestionStore, musicStore store.MusicStore, musiArtistStore store.MusicArtistStore, musicAlbumStore store.MusicAlbumStore, themeStore store.ThemeStore, themeQuestionStore store.ThemeQuestionStore) GameService {
+func NewGameService(logger *zap.Logger, db *sql.DB, gameStore store.GameStore, gameQuestionStore store.GameQuestionStore, musicStore store.MusicStore, musiArtistStore store.MusicArtistStore, musicAlbumStore store.MusicAlbumStore, themeStore store.ThemeStore, themeQuestionStore store.ThemeQuestionStore, deezerClient client.DeezerClient) GameService {
 	return &gameService{
 		logger:             logger,
 		db:                 db,
@@ -31,6 +33,7 @@ func NewGameService(logger *zap.Logger, db *sql.DB, gameStore store.GameStore, g
 		musicAlbumStore:    musicAlbumStore,
 		themeStore:         themeStore,
 		themeQuestionStore: themeQuestionStore,
+		deezerClient:       deezerClient,
 	}
 }
 
@@ -44,6 +47,7 @@ type gameService struct {
 	musicAlbumStore    store.MusicAlbumStore
 	themeStore         store.ThemeStore
 	themeQuestionStore store.ThemeQuestionStore
+	deezerClient       client.DeezerClient
 }
 
 func (s *gameService) CreateGame(ctx context.Context, settings model.GameSettings) (*model.Game, error) {
@@ -52,7 +56,9 @@ func (s *gameService) CreateGame(ctx context.Context, settings model.GameSetting
 	err := util.SqlTransaction(ctx, s.db, func(tx *sql.Tx) {
 
 		var questions []*model.GameQuestion
-		if settings.UseStore() {
+		if settings.UseDeezerPlaylist() {
+			questions = s.createDeezerQuestions(ctx, tx, settings)
+		} else if settings.UseStore() {
 			questions = s.createStoreQuestions(ctx, tx, settings)
 		} else {
 			questions = s.createLegacyQuestions(ctx, tx, settings)
@@ -84,6 +90,104 @@ func (s *gameService) createLegacyQuestions(ctx context.Context, tx *sql.Tx, set
 	return s.gameQuestionStore.SelectRandomQuestions(ctx, tx, settings)
 }
 
+func (s *gameService) createDeezerQuestions(ctx context.Context, tx *sql.Tx, settings model.GameSettings) []*model.GameQuestion {
+
+	//
+	// retrieve deezer playlist
+	//
+
+	s.logger.Info(fmt.Sprintf("[DEBUG] retrieve deezer playlist %d", settings.DeezerPlaylistId))
+	playlist, err := s.deezerClient.GetPlaylist(settings.DeezerPlaylistId, true /* with tracks */)
+	if err != nil {
+		s.logger.Info(fmt.Sprintf("[DEBUG] deezer playlist %d NOT found!", settings.DeezerPlaylistId), zap.Error(err))
+		panic(err)
+	}
+	if playlist == nil || len(playlist.Musics) == 0 {
+		s.logger.Info(fmt.Sprintf("[DEBUG] EMPTY deezed playlist %d!", settings.DeezerPlaylistId))
+		panic(model.ErrEmptyPlaylist)
+	}
+
+	//
+	// validate
+	//
+
+	if settings.NbQuestion <= 0 {
+		panic(model.ErrInvalidNumberOfQuestion)
+	}
+	if settings.NbAnswer <= 0 {
+		panic(model.ErrInvalidNumberOfAnswer)
+	}
+
+	//
+	// random seed
+	//
+
+	rand.Seed(settings.Seed)
+
+	//
+	// select & shuffle media ids
+	//
+
+	musicIndexes := make([]int, 0, 2000)
+	for index := range playlist.Musics {
+		musicIndexes = append(musicIndexes, index)
+	}
+	util.Shuffle(musicIndexes)
+
+	//
+	// select subset
+	//
+
+	if len(musicIndexes) > settings.NbQuestion {
+		musicIndexes = musicIndexes[:settings.NbQuestion]
+	}
+
+	//
+	// building questions
+	//
+
+	questions := make([]*model.GameQuestion, 0, settings.NbQuestion)
+	for _, musicIndex := range musicIndexes {
+		music := playlist.Musics[musicIndex]
+		questions = append(questions, s.toPlaylistQuestion(ctx, playlist, music, settings.NbAnswer))
+	}
+
+	return questions
+}
+
+func (s *gameService) toPlaylistQuestion(ctx context.Context, playlist *model.Playlist, music *model.Music, nbAnswer int) *model.GameQuestion {
+	return &model.GameQuestion{
+		Theme:   s.toPlaylistTheme(ctx, playlist),
+		Music:   s.toMusic(ctx, music),
+		Answers: s.toPlaylistAnswers(ctx, playlist, music, nbAnswer),
+	}
+}
+
+func (s *gameService) toPlaylistTheme(ctx context.Context, playlist *model.Playlist) *model.GameTheme {
+	return &model.GameTheme{
+		Title:  playlist.Name,
+		ImgUrl: playlist.ImgUrl,
+	}
+}
+
+func (s *gameService) toPlaylistAnswers(ctx context.Context, playlist *model.Playlist, music *model.Music, nbAnswer int) []*model.GameAnswer {
+
+	others := util.Filter(playlist.Musics, func(other *model.Music) bool { return other.DeezerId != music.DeezerId })
+
+	util.Shuffle(others)
+
+	if len(others) > nbAnswer-1 {
+		others = others[:nbAnswer-1]
+	}
+
+	answers := util.Convert(others, func(other *model.Music) *model.GameAnswer { return other.ToGameAnswer(false /* correct */) })
+	answers = append(answers, music.ToGameAnswer(true /* correct */))
+
+	util.Shuffle(answers)
+
+	return answers
+}
+
 func (s *gameService) createStoreQuestions(ctx context.Context, tx *sql.Tx, settings model.GameSettings) []*model.GameQuestion {
 
 	//
@@ -91,7 +195,12 @@ func (s *gameService) createStoreQuestions(ctx context.Context, tx *sql.Tx, sett
 	//
 
 	s.logger.Info(fmt.Sprintf("[DEBUG] select %d questions", settings.NbQuestion))
-	questions := s.themeQuestionStore.List(ctx, tx, &model.ThemeQuestionFilter{Random: true, Limit: settings.NbQuestion})
+	filter := &model.ThemeQuestionFilter{
+		Random:   true,
+		Limit:    settings.NbQuestion,
+		ThemeIds: settings.ThemeIds,
+	}
+	questions := s.themeQuestionStore.List(ctx, tx, filter)
 
 	//
 	// retrieve themes
@@ -113,7 +222,10 @@ func (s *gameService) createStoreQuestions(ctx context.Context, tx *sql.Tx, sett
 			s.logger.Info(fmt.Sprintf("[DEBUG] retrieve theme %d", question.ThemeId))
 			theme = s.themeStore.Retrieve(ctx, tx, question.ThemeId)
 			s.logger.Info(fmt.Sprintf("[DEBUG] retrieve questions for theme %d", theme.Id))
-			theme.Questions = s.themeQuestionStore.List(ctx, tx, &model.ThemeQuestionFilter{ThemeId: theme.Id})
+			filter := &model.ThemeQuestionFilter{
+				ThemeIds: []model.ThemeId{theme.Id},
+			}
+			theme.Questions = s.themeQuestionStore.List(ctx, tx, filter)
 		}
 
 		//

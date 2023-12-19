@@ -154,7 +154,10 @@ func (s *themeService) retrieveTheme(ctx context.Context, tx *sql.Tx, id model.T
 	//
 
 	s.logger.Info(fmt.Sprintf("[DEBUG] retrieve questions for theme %d", theme.Id))
-	theme.Questions = s.themeQuestionStore.List(ctx, tx, &model.ThemeQuestionFilter{ThemeId: id})
+	filter := &model.ThemeQuestionFilter{
+		ThemeIds: []model.ThemeId{id},
+	}
+	theme.Questions = s.themeQuestionStore.List(ctx, tx, filter)
 
 	//
 	// attach musics
@@ -251,7 +254,10 @@ func (s *themeService) DeleteTheme(ctx context.Context, id model.ThemeId) error 
 		// delete questions
 		//
 
-		s.themeQuestionStore.Delete(ctx, tx, &model.ThemeQuestionFilter{ThemeId: id})
+		filter := &model.ThemeQuestionFilter{
+			ThemeIds: []model.ThemeId{id},
+		}
+		s.themeQuestionStore.Delete(ctx, tx, filter)
 
 	})
 
@@ -392,9 +398,9 @@ func (s *themeService) RemoveQuestion(ctx context.Context, id model.ThemeId, que
 // attach music
 
 func (s *themeService) AttachMusic(ctx context.Context, tx *sql.Tx) func(question *model.ThemeQuestion) *model.ThemeQuestion {
-	
+
 	// TODO avoid multiple queries
-	
+
 	return func(question *model.ThemeQuestion) *model.ThemeQuestion {
 		if question.MusicId != 0 {
 			question.Music = s.musicStore.Retrieve(ctx, tx, question.MusicId)

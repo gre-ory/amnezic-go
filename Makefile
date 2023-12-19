@@ -26,8 +26,10 @@ Q := @
 .PHONY:	all build test install run
 
 build:
+	@echo " ----- build -----"
 	$(Q)CGO_ENABLED=1 GOOS=linux go build $(GO_BUILD_FLAGS) -ldflags "${LDFLAGS}" -o ${SERVER} ${PACKAGE}
 run: build db-up
+	@echo " ----- run -----"
 	@./scripts/run
 test:
 	$(Q) go test -race ./...
@@ -38,6 +40,7 @@ push:
 db-status:
 	@goose -dir "./db" "sqlite3" "./db/amnezic.db" status
 db-up:
+	@echo " ----- db-up -----"
 	@goose -dir "./db" "sqlite3" "./db/amnezic.db" up
 db-down:
 	@goose -dir "./db" "sqlite3" "./db/amnezic.db" down
