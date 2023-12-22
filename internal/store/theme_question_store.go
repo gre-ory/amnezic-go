@@ -166,7 +166,8 @@ func (s *themeQuestionStore) whereClause(filter *model.ThemeQuestionFilter) util
 		if len(filter.ThemeIds) == 1 {
 			wc.WithCondition("theme_id = %s", filter.ThemeIds[0])
 		} else if len(filter.ThemeIds) > 1 {
-			wc.WithCondition("theme_id IN (%s)", util.Join(filter.ThemeIds, util.IntToStr[model.ThemeId]))
+			placeholders := util.Join(filter.ThemeIds, func(_ model.ThemeId) string { return "%s" })
+			wc.WithCondition("theme_id IN ("+placeholders+")", util.Convert(filter.ThemeIds, util.ToAny[model.ThemeId])...)
 		}
 		if filter.MusicId != 0 {
 			wc.WithCondition("music_id = %s", filter.MusicId)
