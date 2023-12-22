@@ -17,3 +17,7 @@ func StrToInt64(value string) int64 {
 func IntToStr[T constraints.Integer](value T) string {
 	return fmt.Sprintf("%d", value)
 }
+
+func ToAny[T any](value T) any {
+	return value
+}

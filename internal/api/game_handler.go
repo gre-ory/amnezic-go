@@ -313,11 +313,13 @@ func toJsonGame(game *model.Game) *JsonGame {
 
 func toJsonGameSettings(settings *model.GameSettings) *JsonGameSettings {
 	return &JsonGameSettings{
-		Seed:       settings.Seed,
-		NbQuestion: settings.NbQuestion,
-		NbAnswer:   settings.NbAnswer,
-		NbPlayer:   settings.NbPlayer,
-		Sources:    util.Convert(settings.Sources, model.Source.String),
+		Seed:             settings.Seed,
+		NbQuestion:       settings.NbQuestion,
+		NbAnswer:         settings.NbAnswer,
+		NbPlayer:         settings.NbPlayer,
+		Sources:          util.Convert(settings.Sources, model.Source.String),
+		ThemeIds:         util.Convert(settings.ThemeIds, model.ThemeId.ToInt64),
+		DeezerPlaylistId: int64(settings.DeezerPlaylistId),
 	}
 }
 
@@ -368,11 +370,13 @@ type JsonGame struct {
 }
 
 type JsonGameSettings struct {
-	Seed       int64    `json:"seed,omitempty"`
-	NbQuestion int      `json:"nbQuestion,omitempty"`
-	NbAnswer   int      `json:"nbAnswer,omitempty"`
-	NbPlayer   int      `json:"nbPlayer,omitempty"`
-	Sources    []string `json:"sources,omitempty"`
+	Seed             int64    `json:"seed,omitempty"`
+	NbQuestion       int      `json:"nbQuestion,omitempty"`
+	NbAnswer         int      `json:"nbAnswer,omitempty"`
+	NbPlayer         int      `json:"nbPlayer,omitempty"`
+	Sources          []string `json:"sources,omitempty"`
+	ThemeIds         []int64  `json:"theme_ids,omitempty"`
+	DeezerPlaylistId int64    `json:"deezer_playlist_id,omitempty"`
 }
 
 type JsonGamePlayer struct {
