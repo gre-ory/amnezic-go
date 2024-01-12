@@ -87,6 +87,12 @@ func (s *BackendServer) Run(ctx context.Context) {
 		return
 	}
 
+	secretKey := os.Getenv("SECRET_KEY")
+	if secretKey == "" {
+		s.logger.Warn("missing SECRET_KEY")
+		return
+	}
+
 	//
 	// store
 	//
@@ -104,9 +110,10 @@ func (s *BackendServer) Run(ctx context.Context) {
 	musicStore := store.NewMusicStore(s.logger)
 	albumStore := store.NewMusicAlbumStore(s.logger)
 	artistStore := store.NewMusicArtistStore(s.logger)
-
 	themeStore := store.NewThemeStore(s.logger)
 	themeQuestionStore := store.NewThemeQuestionStore(s.logger)
+	userStore := store.NewUserStore(s.logger)
+	sessionStore := store.NewSessionStore(s.logger)
 
 	//
 	// client
@@ -121,6 +128,8 @@ func (s *BackendServer) Run(ctx context.Context) {
 	gameService := service.NewGameService(s.logger, db, gameStore, gameQuestionStore, musicStore, artistStore, albumStore, themeStore, themeQuestionStore, deezerClient)
 	musicService := service.NewMusicService(s.logger, deezerClient, db, musicStore, albumStore, artistStore, themeStore, themeQuestionStore)
 	themeService := service.NewThemeService(s.logger, db, themeStore, themeQuestionStore, musicStore, artistStore, albumStore)
+	userService := service.NewUserService(s.logger, db, userStore)
+	sessionService := service.NewSessionService(s.logger, secretKey, db, sessionStore, userStore)
 
 	//
 	// api
@@ -128,8 +137,10 @@ func (s *BackendServer) Run(ctx context.Context) {
 
 	gameHandler := api.NewGamehandler(s.logger, gameService)
 	musicHandler := api.NewMusichandler(s.logger, musicService)
-	themeHandler := api.NewThemehandler(s.logger, themeService, musicService)
+	themeHandler := api.NewThemehandler(s.logger, themeService, musicService, sessionService)
 	playlistHandler := api.NewPlaylisthandler(s.logger, musicService)
+	userHandler := api.NewUserHandler(s.logger, userService, sessionService)
+	sessionHandler := api.NewSessionhandler(s.logger, sessionService)
 
 	//
 	// router
@@ -140,6 +151,8 @@ func (s *BackendServer) Run(ctx context.Context) {
 	musicHandler.RegisterRoutes(router)
 	themeHandler.RegisterRoutes(router)
 	playlistHandler.RegisterRoutes(router)
+	userHandler.RegisterRoutes(router)
+	sessionHandler.RegisterRoutes(router)
 
 	//
 	// server
