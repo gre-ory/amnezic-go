@@ -29,6 +29,8 @@ func NewSqlCondition(condition string, args ...any) SqlWhereClause {
 	return wc.WithCondition(condition, args...)
 }
 
+var NoWhereClause = NewSqlWhereClause()
+
 type sqlWhereClause struct {
 	conditions  []string
 	args        []any

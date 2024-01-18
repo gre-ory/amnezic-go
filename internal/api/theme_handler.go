@@ -16,33 +16,38 @@ import (
 // //////////////////////////////////////////////////
 // theme handler
 
-func NewThemehandler(logger *zap.Logger, themeService service.ThemeService, musicService service.MusicService) Handler {
+func NewThemehandler(logger *zap.Logger, themeService service.ThemeService, musicService service.MusicService, sessionService service.SessionService) Handler {
 	return &themeHandler{
-		logger:       logger,
-		themeService: themeService,
-		musicService: musicService,
+		logger:         logger,
+		themeService:   themeService,
+		musicService:   musicService,
+		sessionService: sessionService,
 	}
 }
 
 type themeHandler struct {
-	logger       *zap.Logger
-	themeService service.ThemeService
-	musicService service.MusicService
+	logger         *zap.Logger
+	themeService   service.ThemeService
+	musicService   service.MusicService
+	sessionService service.SessionService
 }
 
 // //////////////////////////////////////////////////
 // register
 
 func (h *themeHandler) RegisterRoutes(router *httprouter.Router) {
-	router.HandlerFunc(http.MethodGet, "/api/theme", h.handleListTheme)
-	router.HandlerFunc(http.MethodPut, "/api/theme/new", h.handleCreateTheme)
-	router.HandlerFunc(http.MethodGet, "/api/theme/:theme_id", h.handleRetrieveTheme)
-	router.HandlerFunc(http.MethodPost, "/api/theme/:theme_id", h.handleUpdateTheme)
-	router.HandlerFunc(http.MethodDelete, "/api/theme/:theme_id", h.handleDeleteTheme)
 
-	router.HandlerFunc(http.MethodPut, "/api/theme-question/:theme_id/new", h.handleAddQuestion)
-	router.HandlerFunc(http.MethodPost, "/api/theme-question/:theme_id/:question_id", h.handleUpdateQuestion)
-	router.HandlerFunc(http.MethodDelete, "/api/theme-question/:theme_id/:question_id", h.handleRemoveQuestion)
+	hasThemePermission := NewPermissionGranter(h.logger, h.sessionService, model.Permission_Theme)
+
+	router.HandlerFunc(http.MethodGet, "/api/theme", Protect(hasThemePermission, h.handleListTheme))
+	router.HandlerFunc(http.MethodPut, "/api/theme/new", Protect(hasThemePermission, h.handleCreateTheme))
+	router.HandlerFunc(http.MethodGet, "/api/theme/:theme_id", Protect(hasThemePermission, h.handleRetrieveTheme))
+	router.HandlerFunc(http.MethodPost, "/api/theme/:theme_id", Protect(hasThemePermission, h.handleUpdateTheme))
+	router.HandlerFunc(http.MethodDelete, "/api/theme/:theme_id", Protect(hasThemePermission, h.handleDeleteTheme))
+
+	router.HandlerFunc(http.MethodPut, "/api/theme-question/:theme_id/new", Protect(hasThemePermission, h.handleAddQuestion))
+	router.HandlerFunc(http.MethodPost, "/api/theme-question/:theme_id/:question_id", Protect(hasThemePermission, h.handleUpdateQuestion))
+	router.HandlerFunc(http.MethodDelete, "/api/theme-question/:theme_id/:question_id", Protect(hasThemePermission, h.handleRemoveQuestion))
 }
 
 // //////////////////////////////////////////////////
