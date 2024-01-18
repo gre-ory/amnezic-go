@@ -7,16 +7,18 @@ import (
 
 	"github.com/gre-ory/amnezic-go/internal/model"
 	"github.com/gre-ory/amnezic-go/internal/service"
+	"go.uber.org/zap"
 )
 
 type Granter interface {
-	Grant(req *http.Request) error
+	Grant(req *http.Request) (*http.Request, error)
 }
 
 func Protect(granter Granter, nextHandler http.HandlerFunc) http.HandlerFunc {
 	return func(resp http.ResponseWriter, req *http.Request) {
+		var err error
 		if granter != nil {
-			err := granter.Grant(req)
+			req, err = granter.Grant(req)
 			if err != nil {
 				encodeError(resp, http.StatusUnauthorized, err.Error())
 				return
@@ -26,44 +28,46 @@ func Protect(granter Granter, nextHandler http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
-func NewPermissionGranter(permission model.Permission, sessionService service.SessionService) Granter {
+func NewPermissionGranter(logger *zap.Logger, sessionService service.SessionService, permission model.Permission) Granter {
 	return &permissionGranter{
-		permission:     permission,
+		logger:         logger,
 		sessionService: sessionService,
+		permission:     permission,
 	}
 }
 
 type permissionGranter struct {
-	permission     model.Permission
+	logger         *zap.Logger
 	sessionService service.SessionService
+	permission     model.Permission
 }
 
-func (g *permissionGranter) Grant(req *http.Request) error {
+func (g *permissionGranter) Grant(req *http.Request) (*http.Request, error) {
 
 	//
 	// extract session token
 	//
 
-	fmt.Printf("req: %+v\n", req)
 	token, err := extractSessionToken(req)
 	if err != nil {
-		fmt.Printf("err: %+v\n", err)
-		return err
+		g.logger.Info("unable to extract session token", zap.Error(err))
+		return req, err
 	}
-	fmt.Printf("token: %+v\n", token)
+	req = req.WithContext(model.WithSessionToken(req.Context(), token))
 
 	//
 	// check session token
 	//
 
-	fmt.Printf("permission: %+v\n", g.permission)
-	err = g.sessionService.IsGranted(req.Context(), token, g.permission)
+	user, err := g.sessionService.IsGranted(req.Context(), token, g.permission)
 	if err != nil {
-		fmt.Printf("err: %+v\n", err)
-		return err
+		g.logger.Info(fmt.Sprintf("user not granted for permission %s", g.permission), zap.Error(err))
+		return req, err
 	}
+	req = req.WithContext(model.WithUser(req.Context(), user))
 
-	return nil
+	g.logger.Info(fmt.Sprintf("user granted for permission %s", g.permission), zap.Error(err))
+	return req, nil
 }
 
 // //////////////////////////////////////////////////

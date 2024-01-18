@@ -38,7 +38,7 @@ func (h *userHandler) RegisterRoutes(router *httprouter.Router) {
 
 	router.HandlerFunc(http.MethodPut, "/api/user/set-up", h.handleUserSetUp)
 
-	hasUserPermission := NewPermissionGranter(model.Permission_User, h.sessionService)
+	hasUserPermission := NewPermissionGranter(h.logger, h.sessionService, model.Permission_User)
 
 	router.HandlerFunc(http.MethodGet, "/api/user", Protect(hasUserPermission, h.handleListUser))
 	router.HandlerFunc(http.MethodPut, "/api/user/new", Protect(hasUserPermission, h.handleCreateUser))
@@ -53,6 +53,7 @@ func (h *userHandler) RegisterRoutes(router *httprouter.Router) {
 // set-up
 
 func (h *userHandler) handleUserSetUp(resp http.ResponseWriter, req *http.Request) {
+	defer onPanic(resp)()
 
 	ctx := req.Context()
 
@@ -98,6 +99,7 @@ func (h *userHandler) handleUserSetUp(resp http.ResponseWriter, req *http.Reques
 // list
 
 func (h *userHandler) handleListUser(resp http.ResponseWriter, req *http.Request) {
+	defer onPanic(resp)()
 
 	ctx := req.Context()
 
@@ -144,6 +146,7 @@ func (h *userHandler) handleListUser(resp http.ResponseWriter, req *http.Request
 // create
 
 func (h *userHandler) handleCreateUser(resp http.ResponseWriter, req *http.Request) {
+	defer onPanic(resp)()
 
 	ctx := req.Context()
 
@@ -201,6 +204,7 @@ func (h *userHandler) handleCreateUser(resp http.ResponseWriter, req *http.Reque
 // retrieve
 
 func (h *userHandler) handleRetrieveUser(resp http.ResponseWriter, req *http.Request) {
+	defer onPanic(resp)()
 
 	ctx := req.Context()
 
@@ -260,6 +264,7 @@ func (h *userHandler) handleRetrieveUser(resp http.ResponseWriter, req *http.Req
 // update
 
 func (h *userHandler) handleUpdateUser(resp http.ResponseWriter, req *http.Request) {
+	defer onPanic(resp)()
 
 	ctx := req.Context()
 
@@ -329,6 +334,7 @@ func (h *userHandler) handleUpdateUser(resp http.ResponseWriter, req *http.Reque
 // delete
 
 func (h *userHandler) handleDeleteUser(resp http.ResponseWriter, req *http.Request) {
+	defer onPanic(resp)()
 
 	ctx := req.Context()
 
@@ -383,6 +389,7 @@ func (h *userHandler) handleDeleteUser(resp http.ResponseWriter, req *http.Reque
 // add permission
 
 func (h *userHandler) handleAddPermission(resp http.ResponseWriter, req *http.Request) {
+	defer onPanic(resp)()
 
 	ctx := req.Context()
 
@@ -444,6 +451,7 @@ func (h *userHandler) handleAddPermission(resp http.ResponseWriter, req *http.Re
 // remove permission
 
 func (h *userHandler) handleRemovePermission(resp http.ResponseWriter, req *http.Request) {
+	defer onPanic(resp)()
 
 	ctx := req.Context()
 

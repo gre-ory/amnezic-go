@@ -60,38 +60,38 @@ func (s *userService) CreateDefaultAdminUser(ctx context.Context) error {
 
 		s.logger.Info("[DEBUG] init")
 		adminUser := s.userStore.SearchByName(ctx, tx, s.defaultAdminUser.Name)
-		if adminUser == nil {
-
-			//
-			// create default admin user
-			//
-
-			user := &model.User{
-				Name:     s.defaultAdminUser.Name,
-				Password: s.defaultAdminUser.Password,
-				Permissions: []model.Permission{
-					model.Permission_User,
-					model.Permission_Theme,
-				},
-			}
-
-			//
-			// hash password
-			//
-
-			err := user.HashPassword()
-			if err != nil {
-				panic(err)
-			}
-
-			//
-			// create user
-			//
-
-			s.logger.Info(fmt.Sprintf("[DEBUG] create default admin user: %#v", user))
-			_ = s.userStore.Create(ctx, tx, user)
-
+		if adminUser != nil {
+			panic(model.ErrExistingUser)
 		}
+
+		//
+		// create default admin user
+		//
+
+		user := &model.User{
+			Name:     s.defaultAdminUser.Name,
+			Password: s.defaultAdminUser.Password,
+			Permissions: []model.Permission{
+				model.Permission_User,
+				model.Permission_Theme,
+			},
+		}
+
+		//
+		// hash password
+		//
+
+		err := user.HashPassword()
+		if err != nil {
+			panic(err)
+		}
+
+		//
+		// create user
+		//
+
+		s.logger.Info(fmt.Sprintf("[DEBUG] create default admin user: %#v", user))
+		_ = s.userStore.Create(ctx, tx, user)
 	})
 
 	if err != nil {
@@ -133,6 +133,11 @@ func (s *userService) CreateUser(ctx context.Context, user *model.User) (*model.
 
 	var created *model.User
 	err := util.SqlTransaction(ctx, s.db, func(tx *sql.Tx) {
+
+		existingUser := s.userStore.SearchByName(ctx, tx, user.Name)
+		if existingUser != nil {
+			panic(model.ErrExistingUser)
+		}
 
 		//
 		// hash password
@@ -185,6 +190,14 @@ func (s *userService) RetrieveUser(ctx context.Context, id model.UserId) (*model
 func (s *userService) DeleteUser(ctx context.Context, id model.UserId) error {
 
 	err := util.SqlTransaction(ctx, s.db, func(tx *sql.Tx) {
+
+		//
+		// check that current user is not removing itself
+		//
+
+		if model.IsCurrentUser(ctx, id) {
+			panic(model.ErrFailedToRemoveOwnUser)
+		}
 
 		//
 		// delete user
@@ -313,7 +326,15 @@ func (s *userService) RemovePermission(ctx context.Context, id model.UserId, per
 		orig := s.userStore.Retrieve(ctx, tx, id)
 
 		//
-		// add permission
+		// check that current user is not removing its own 'user' permission
+		//
+
+		if model.IsCurrentUser(ctx, id) && permission == model.Permission_User {
+			panic(model.ErrFailedToRemoveOwnPermission)
+		}
+
+		//
+		// remove permission
 		//
 
 		target := orig.Copy()
@@ -329,7 +350,7 @@ func (s *userService) RemovePermission(ctx context.Context, id model.UserId, per
 	})
 
 	if err != nil {
-		s.logger.Info(fmt.Sprintf("[ KO ] remove permission %s to user %d", permission, user.Id), zap.Error(err))
+		s.logger.Info(fmt.Sprintf("[ KO ] remove permission %s to user %d", permission, id), zap.Error(err))
 		return nil, err
 	}
 	s.logger.Info(fmt.Sprintf("[ OK ] remove permission %s to user %d", permission, user.Id), zap.Object("user", user))

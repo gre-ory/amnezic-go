@@ -3,6 +3,7 @@ package util
 import (
 	"fmt"
 	"strconv"
+	"time"
 
 	"golang.org/x/exp/constraints"
 )
@@ -20,4 +21,8 @@ func IntToStr[T constraints.Integer](value T) string {
 
 func ToAny[T any](value T) any {
 	return value
+}
+
+func TsToStr(ts int64) string {
+	return time.Unix(ts, 0).Format(time.DateTime)
 }

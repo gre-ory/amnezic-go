@@ -37,7 +37,7 @@ type themeHandler struct {
 
 func (h *themeHandler) RegisterRoutes(router *httprouter.Router) {
 
-	hasThemePermission := NewPermissionGranter(model.Permission_Theme, h.sessionService)
+	hasThemePermission := NewPermissionGranter(h.logger, h.sessionService, model.Permission_Theme)
 
 	router.HandlerFunc(http.MethodGet, "/api/theme", Protect(hasThemePermission, h.handleListTheme))
 	router.HandlerFunc(http.MethodPut, "/api/theme/new", Protect(hasThemePermission, h.handleCreateTheme))

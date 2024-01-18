@@ -32,18 +32,20 @@ type sessionHandler struct {
 
 func (h *sessionHandler) RegisterRoutes(router *httprouter.Router) {
 
-	// TODO deactivate
-	router.HandlerFunc(http.MethodGet, "/api/session", h.handleListSession)
-	router.HandlerFunc(http.MethodDelete, "/api/session", h.handleFlushSession)
-
 	router.HandlerFunc(http.MethodGet, "/api/login", h.handleLogin)
 	router.HandlerFunc(http.MethodGet, "/api/logout", h.handleLogout)
+
+	hasSessionPermission := NewPermissionGranter(h.logger, h.sessionService, model.Permission_Session)
+
+	router.HandlerFunc(http.MethodGet, "/api/session", Protect(hasSessionPermission, h.handleListSession))
+	router.HandlerFunc(http.MethodDelete, "/api/session", Protect(hasSessionPermission, h.handleFlushSession))
 }
 
 // //////////////////////////////////////////////////
 // list
 
 func (h *sessionHandler) handleListSession(resp http.ResponseWriter, req *http.Request) {
+	defer onPanic(resp)()
 
 	ctx := req.Context()
 
@@ -90,6 +92,7 @@ func (h *sessionHandler) handleListSession(resp http.ResponseWriter, req *http.R
 // flush
 
 func (h *sessionHandler) handleFlushSession(resp http.ResponseWriter, req *http.Request) {
+	defer onPanic(resp)()
 
 	ctx := req.Context()
 
@@ -135,6 +138,7 @@ func (h *sessionHandler) handleFlushSession(resp http.ResponseWriter, req *http.
 // login
 
 func (h *sessionHandler) handleLogin(resp http.ResponseWriter, req *http.Request) {
+	defer onPanic(resp)()
 
 	ctx := req.Context()
 
@@ -191,6 +195,7 @@ func (h *sessionHandler) handleLogin(resp http.ResponseWriter, req *http.Request
 // login
 
 func (h *sessionHandler) handleLogout(resp http.ResponseWriter, req *http.Request) {
+	defer onPanic(resp)()
 
 	ctx := req.Context()
 
@@ -300,7 +305,7 @@ func toJsonSession(session *model.Session) *JsonSession {
 	return &JsonSession{
 		Token:      session.Token.String(),
 		UserId:     session.UserId.ToInt64(),
-		Expiration: session.Expiration.Unix(),
+		Expiration: session.Expiration.Format("2006-01-02T15:04:05Z"),
 	}
 }
 
@@ -317,7 +322,7 @@ type JsonSessionResponse struct {
 type JsonSession struct {
 	Token      string `json:"token,omitempty"`
 	UserId     int64  `json:"userId,omitempty"`
-	Expiration int64  `json:"expiration,omitempty"`
+	Expiration string `json:"expiration,omitempty"`
 }
 
 // // //////////////////////////////////////////////////

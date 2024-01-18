@@ -20,7 +20,7 @@ import (
 
 type SessionService interface {
 	Login(ctx context.Context, login *model.LoginRequest) (*model.Session, error)
-	IsGranted(ctx context.Context, token model.SessionToken, permission model.Permission) error
+	IsGranted(ctx context.Context, token model.SessionToken, permission model.Permission) (*model.User, error)
 	Logout(ctx context.Context, token model.SessionToken) error
 
 	ListSessions(ctx context.Context) ([]*model.Session, error)
@@ -189,7 +189,7 @@ func (s *sessionService) newSession(userId model.UserId, ttl time.Duration) (*mo
 // //////////////////////////////////////////////////
 // retrieve
 
-func (s *sessionService) IsGranted(ctx context.Context, token model.SessionToken, permission model.Permission) error {
+func (s *sessionService) IsGranted(ctx context.Context, token model.SessionToken, permission model.Permission) (*model.User, error) {
 
 	now := time.Now()
 
@@ -249,10 +249,10 @@ func (s *sessionService) IsGranted(ctx context.Context, token model.SessionToken
 
 	if err != nil {
 		s.logger.Info(fmt.Sprintf("[ KO ] is granted for permission %s", permission), zap.Error(err))
-		return err
+		return nil, err
 	}
 	s.logger.Info(fmt.Sprintf("[ OK ] is granted for permission %s", permission))
-	return nil
+	return user, nil
 }
 
 // //////////////////////////////////////////////////
