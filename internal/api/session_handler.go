@@ -7,6 +7,7 @@ import (
 
 	"github.com/gre-ory/amnezic-go/internal/model"
 	"github.com/gre-ory/amnezic-go/internal/service"
+	"github.com/gre-ory/amnezic-go/internal/util"
 	"github.com/julienschmidt/httprouter"
 	"go.uber.org/zap"
 )
@@ -30,8 +31,104 @@ type sessionHandler struct {
 // register
 
 func (h *sessionHandler) RegisterRoutes(router *httprouter.Router) {
+
+	// TODO deactivate
+	router.HandlerFunc(http.MethodGet, "/api/session", h.handleListSession)
+	router.HandlerFunc(http.MethodDelete, "/api/session", h.handleFlushSession)
+
 	router.HandlerFunc(http.MethodGet, "/api/login", h.handleLogin)
 	router.HandlerFunc(http.MethodGet, "/api/logout", h.handleLogout)
+}
+
+// //////////////////////////////////////////////////
+// list
+
+func (h *sessionHandler) handleListSession(resp http.ResponseWriter, req *http.Request) {
+
+	ctx := req.Context()
+
+	var sessions []*model.Session
+	var err error
+
+	switch {
+	default:
+
+		h.logger.Info("[api] list users")
+
+		//
+		// execute
+		//
+
+		sessions, err = h.sessionService.ListSessions(ctx)
+		if err != nil {
+			break
+		}
+
+		//
+		// encode response
+		//
+
+		resp.Header().Set("Content-Type", "application/json")
+		resp.WriteHeader(http.StatusOK)
+		err = json.NewEncoder(resp).Encode(toJsonSessionsResponse(sessions))
+		if err != nil {
+			break
+		}
+		return
+
+	}
+
+	//
+	// encode error
+	//
+
+	// TODO status code
+	encodeError(resp, http.StatusBadRequest, err.Error())
+}
+
+// //////////////////////////////////////////////////
+// flush
+
+func (h *sessionHandler) handleFlushSession(resp http.ResponseWriter, req *http.Request) {
+
+	ctx := req.Context()
+
+	var err error
+
+	switch {
+	default:
+
+		h.logger.Info("[api] flush all sessions")
+
+		//
+		// execute
+		//
+
+		err = h.sessionService.FlushSessions(ctx)
+		if err != nil {
+			break
+		}
+
+		//
+		// encode response
+		//
+
+		resp.Header().Set("Content-Type", "application/json")
+		resp.WriteHeader(http.StatusOK)
+		err = json.NewEncoder(resp).Encode(toJsonSuccess())
+		if err != nil {
+			break
+		}
+		return
+
+	}
+
+	//
+	// encode error
+	//
+
+	// TODO status code
+	encodeError(resp, http.StatusBadRequest, err.Error())
 }
 
 // //////////////////////////////////////////////////
@@ -158,6 +255,9 @@ func extractLoginRequestFromBody(req *http.Request, logger *zap.Logger) (*model.
 	case jsonErr != nil:
 		logger.Info("failed to decode login body", zap.Error(jsonErr))
 		return nil, model.ErrInvalidBody
+	case jsonBody.Login == nil:
+		logger.Info("missing login info", zap.Error(jsonErr))
+		return nil, model.ErrInvalidBody
 	}
 
 	return toLoginRequest(jsonBody.Login), nil
@@ -182,6 +282,13 @@ type JsonLoginRequest struct {
 // //////////////////////////////////////////////////
 // encode
 
+func toJsonSessionsResponse(sessions []*model.Session) *JsonSessionsResponse {
+	return &JsonSessionsResponse{
+		Success:  true,
+		Sessions: util.Convert(sessions, toJsonSession),
+	}
+}
+
 func toJsonSessionResponse(session *model.Session) *JsonSessionResponse {
 	return &JsonSessionResponse{
 		Success: true,
@@ -195,6 +302,11 @@ func toJsonSession(session *model.Session) *JsonSession {
 		UserId:     session.UserId.ToInt64(),
 		Expiration: session.Expiration.Unix(),
 	}
+}
+
+type JsonSessionsResponse struct {
+	Success  bool           `json:"success,omitempty"`
+	Sessions []*JsonSession `json:"sessions,omitempty"`
 }
 
 type JsonSessionResponse struct {

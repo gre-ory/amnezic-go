@@ -5,6 +5,7 @@ import (
 
 	"github.com/gre-ory/amnezic-go/internal/util"
 	"go.uber.org/zap/zapcore"
+	"golang.org/x/crypto/bcrypt"
 )
 
 // //////////////////////////////////////////////////
@@ -55,6 +56,20 @@ func (o *User) RemovePermission(permission Permission) {
 	o.Permissions = util.Filter(o.Permissions, func(p Permission) bool {
 		return p != permission
 	})
+}
+
+func (o *User) HashPassword() error {
+	if o.Password == "" {
+		return ErrInvalidPassword
+	}
+	newHash, err := bcrypt.GenerateFromPassword([]byte(o.Password), bcrypt.DefaultCost)
+	if err != nil {
+		return err
+	}
+	o.Password = ""
+	o.OldPassword = ""
+	o.Hash = string(newHash)
+	return nil
 }
 
 func (o *User) Copy() *User {

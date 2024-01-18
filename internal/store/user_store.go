@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"strings"
 
 	"github.com/gre-ory/amnezic-go/internal/model"
@@ -16,7 +17,7 @@ import (
 type UserStore interface {
 	Create(ctx context.Context, tx *sql.Tx, user *model.User) *model.User
 	Retrieve(ctx context.Context, tx *sql.Tx, id model.UserId) *model.User
-	RetrieveFromName(ctx context.Context, tx *sql.Tx, name string) *model.User
+	SearchByName(ctx context.Context, tx *sql.Tx, name string) *model.User
 	Update(ctx context.Context, tx *sql.Tx, user *model.User) *model.User
 	Delete(ctx context.Context, tx *sql.Tx, filter *model.UserFilter)
 	List(ctx context.Context, tx *sql.Tx, filter *model.UserFilter) []*model.User
@@ -103,12 +104,16 @@ func (s *userStore) Retrieve(ctx context.Context, tx *sql.Tx, id model.UserId) *
 }
 
 // //////////////////////////////////////////////////
-// retrieve from name
+// search by name
 
-func (s *userStore) RetrieveFromName(ctx context.Context, tx *sql.Tx, name string) *model.User {
+func (s *userStore) SearchByName(ctx context.Context, tx *sql.Tx, name string) *model.User {
 	row, err := s.SelectRow(ctx, tx, s.matchingName(name))
 	if err != nil {
-		panic(err)
+		if errors.Is(err, model.ErrUserNotFound) {
+			return nil
+		} else {
+			panic(err)
+		}
 	}
 	return s.DecodeRow(row)
 }

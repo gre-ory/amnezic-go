@@ -36,6 +36,8 @@ type userHandler struct {
 
 func (h *userHandler) RegisterRoutes(router *httprouter.Router) {
 
+	router.HandlerFunc(http.MethodPut, "/api/user/set-up", h.handleUserSetUp)
+
 	hasUserPermission := NewPermissionGranter(model.Permission_User, h.sessionService)
 
 	router.HandlerFunc(http.MethodGet, "/api/user", Protect(hasUserPermission, h.handleListUser))
@@ -43,8 +45,53 @@ func (h *userHandler) RegisterRoutes(router *httprouter.Router) {
 	router.HandlerFunc(http.MethodGet, "/api/user/:user_id", Protect(hasUserPermission, h.handleRetrieveUser))
 	router.HandlerFunc(http.MethodPost, "/api/user/:user_id", Protect(hasUserPermission, h.handleUpdateUser))
 	router.HandlerFunc(http.MethodDelete, "/api/user/:user_id", Protect(hasUserPermission, h.handleDeleteUser))
-	router.HandlerFunc(http.MethodPut, "/api/user/:user_id/permission/:permission", Protect(hasUserPermission, h.handleAddPermission))
-	router.HandlerFunc(http.MethodDelete, "/api/user/:user_id/permission/:permission", Protect(hasUserPermission, h.handleRemovePermission))
+	router.HandlerFunc(http.MethodPut, "/api/user-permission/:user_id/:permission", Protect(hasUserPermission, h.handleAddPermission))
+	router.HandlerFunc(http.MethodDelete, "/api/user-permission/:user_id/:permission", Protect(hasUserPermission, h.handleRemovePermission))
+}
+
+// //////////////////////////////////////////////////
+// set-up
+
+func (h *userHandler) handleUserSetUp(resp http.ResponseWriter, req *http.Request) {
+
+	ctx := req.Context()
+
+	var err error
+
+	switch {
+	default:
+
+		h.logger.Info("[api] user set-up")
+
+		//
+		// execute
+		//
+
+		err = h.userService.CreateDefaultAdminUser(ctx)
+		if err != nil {
+			break
+		}
+
+		//
+		// encode response
+		//
+
+		resp.Header().Set("Content-Type", "application/json")
+		resp.WriteHeader(http.StatusOK)
+		err = json.NewEncoder(resp).Encode(toJsonSuccess())
+		if err != nil {
+			break
+		}
+		return
+
+	}
+
+	//
+	// encode error
+	//
+
+	// TODO status code
+	encodeError(resp, http.StatusBadRequest, err.Error())
 }
 
 // //////////////////////////////////////////////////

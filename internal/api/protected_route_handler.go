@@ -1,6 +1,7 @@
 package api
 
 import (
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -27,7 +28,8 @@ func Protect(granter Granter, nextHandler http.HandlerFunc) http.HandlerFunc {
 
 func NewPermissionGranter(permission model.Permission, sessionService service.SessionService) Granter {
 	return &permissionGranter{
-		permission: permission,
+		permission:     permission,
+		sessionService: sessionService,
 	}
 }
 
@@ -42,17 +44,22 @@ func (g *permissionGranter) Grant(req *http.Request) error {
 	// extract session token
 	//
 
+	fmt.Printf("req: %+v\n", req)
 	token, err := extractSessionToken(req)
 	if err != nil {
+		fmt.Printf("err: %+v\n", err)
 		return err
 	}
+	fmt.Printf("token: %+v\n", token)
 
 	//
 	// check session token
 	//
 
+	fmt.Printf("permission: %+v\n", g.permission)
 	err = g.sessionService.IsGranted(req.Context(), token, g.permission)
 	if err != nil {
+		fmt.Printf("err: %+v\n", err)
 		return err
 	}
 

@@ -22,6 +22,9 @@ type SessionService interface {
 	Login(ctx context.Context, login *model.LoginRequest) (*model.Session, error)
 	IsGranted(ctx context.Context, token model.SessionToken, permission model.Permission) error
 	Logout(ctx context.Context, token model.SessionToken) error
+
+	ListSessions(ctx context.Context) ([]*model.Session, error)
+	FlushSessions(ctx context.Context) error
 }
 
 func NewSessionService(logger *zap.Logger, secretKey string, db *sql.DB, sessionStore store.SessionStore, userStore store.UserStore) SessionService {
@@ -43,6 +46,52 @@ type sessionService struct {
 }
 
 // //////////////////////////////////////////////////
+// list
+
+func (s *sessionService) ListSessions(ctx context.Context) ([]*model.Session, error) {
+
+	var sessions []*model.Session
+
+	err := util.SqlTransaction(ctx, s.db, func(tx *sql.Tx) {
+		//
+		// list users
+		//
+
+		s.logger.Info("[DEBUG] list sessions")
+		sessions = s.sessionStore.List(ctx, tx)
+	})
+
+	if err != nil {
+		s.logger.Info("[ KO ] list sessions", zap.Error(err))
+		return nil, err
+	}
+	s.logger.Info("[ OK ] list sessions")
+	return sessions, nil
+}
+
+// //////////////////////////////////////////////////
+// list
+
+func (s *sessionService) FlushSessions(ctx context.Context) error {
+
+	err := util.SqlTransaction(ctx, s.db, func(tx *sql.Tx) {
+		//
+		// list users
+		//
+
+		s.logger.Info("[DEBUG] flush all sessions")
+		s.sessionStore.Flush(ctx, tx)
+	})
+
+	if err != nil {
+		s.logger.Info("[ KO ] flush all sessions", zap.Error(err))
+		return err
+	}
+	s.logger.Info("[ OK ] flush all sessions")
+	return nil
+}
+
+// //////////////////////////////////////////////////
 // login
 
 func (s *sessionService) Login(ctx context.Context, login *model.LoginRequest) (*model.Session, error) {
@@ -50,7 +99,7 @@ func (s *sessionService) Login(ctx context.Context, login *model.LoginRequest) (
 	now := time.Now()
 
 	var user *model.User
-	var created *model.Session
+	var session *model.Session
 	err := util.SqlTransaction(ctx, s.db, func(tx *sql.Tx) {
 
 		//
@@ -65,7 +114,22 @@ func (s *sessionService) Login(ctx context.Context, login *model.LoginRequest) (
 		//
 
 		s.logger.Info(fmt.Sprintf("[DEBUG] retrieve user %s", login.Name))
-		user = s.userStore.RetrieveFromName(ctx, tx, login.Name)
+		user = s.userStore.SearchByName(ctx, tx, login.Name)
+		if user == nil {
+			s.logger.Info(fmt.Sprintf("[DEBUG] user %s not found", login.Name))
+			panic(model.ErrUserNotFound)
+		}
+
+		//
+		// check for any previous session
+		//
+
+		s.logger.Info(fmt.Sprintf("[DEBUG] check for any existing session for user %d", user.Id))
+		session = s.sessionStore.SearchByUserId(ctx, tx, user.Id)
+		if session != nil {
+			s.logger.Info(fmt.Sprintf("[DEBUG] existing session for user %d", user.Id))
+			return
+		}
 
 		//
 		// check password
@@ -81,20 +145,21 @@ func (s *sessionService) Login(ctx context.Context, login *model.LoginRequest) (
 		// create session
 		//
 
-		session, err := s.newSession(user.Id, 24*time.Hour)
+		newSession, err := s.newSession(user.Id, 24*time.Hour)
 		if err != nil {
+			s.logger.Info(fmt.Sprintf("[DEBUG] unable to create new session for user %d", user.Id), zap.Error(err))
 			panic(err)
 		}
-		s.logger.Info(fmt.Sprintf("[DEBUG] create session: %#v", session))
-		created = s.sessionStore.Create(ctx, tx, session)
+		s.logger.Info(fmt.Sprintf("[DEBUG] create session: %#v", newSession))
+		session = s.sessionStore.Create(ctx, tx, newSession)
 	})
 
 	if err != nil {
-		s.logger.Info(fmt.Sprintf("[ KO ] create session for user %s", login.Name), zap.Error(err))
+		s.logger.Info(fmt.Sprintf("[ KO ] login for user %s", login.Name), zap.Error(err))
 		return nil, err
 	}
-	s.logger.Info(fmt.Sprintf("[ OK ] create session for user %s", login.Name), zap.Object("session", created))
-	return created, nil
+	s.logger.Info(fmt.Sprintf("[ OK ] login for user %s", login.Name), zap.Object("session", session))
+	return session, nil
 }
 
 func (s *sessionService) newSession(userId model.UserId, ttl time.Duration) (*model.Session, error) {
@@ -109,7 +174,7 @@ func (s *sessionService) newSession(userId model.UserId, ttl time.Duration) (*mo
 		},
 	)
 
-	token, err := jwtToken.SignedString(s.secretKey)
+	token, err := jwtToken.SignedString([]byte(s.secretKey))
 	if err != nil {
 		return nil, err
 	}
@@ -153,7 +218,7 @@ func (s *sessionService) IsGranted(ctx context.Context, token model.SessionToken
 		jwtToken, err := jwt.Parse(
 			session.Token.String(),
 			func(token *jwt.Token) (interface{}, error) {
-				return s.secretKey, nil
+				return []byte(s.secretKey), nil
 			},
 		)
 		if err != nil {

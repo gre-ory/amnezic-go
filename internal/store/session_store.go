@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"time"
 
 	"github.com/gre-ory/amnezic-go/internal/model"
@@ -16,8 +17,11 @@ import (
 type SessionStore interface {
 	Create(ctx context.Context, tx *sql.Tx, session *model.Session) *model.Session
 	Retrieve(ctx context.Context, tx *sql.Tx, token model.SessionToken) *model.Session
+	SearchByUserId(ctx context.Context, tx *sql.Tx, id model.UserId) *model.Session
 	Delete(ctx context.Context, tx *sql.Tx, token model.SessionToken)
 	CleanUp(ctx context.Context, tx *sql.Tx, refTime time.Time)
+	List(ctx context.Context, tx *sql.Tx) []*model.Session
+	Flush(ctx context.Context, tx *sql.Tx)
 }
 
 func NewSessionStore(logger *zap.Logger) SessionStore {
@@ -49,6 +53,7 @@ type SessionRow struct {
 func (s *sessionStore) EncodeRow(obj *model.Session) *SessionRow {
 	return &SessionRow{
 		Token:      string(obj.Token),
+		UserId:     int64(obj.UserId),
 		Expiration: obj.Expiration.Unix(),
 	}
 }
@@ -59,6 +64,7 @@ func (s *sessionStore) DecodeRow(row *SessionRow) *model.Session {
 	}
 	return &model.Session{
 		Token:      model.SessionToken(row.Token),
+		UserId:     model.UserId(row.UserId),
 		Expiration: time.Unix(row.Expiration, 0),
 	}
 }
@@ -82,6 +88,21 @@ func (s *sessionStore) Retrieve(ctx context.Context, tx *sql.Tx, token model.Ses
 }
 
 // //////////////////////////////////////////////////
+// search by id
+
+func (s *sessionStore) SearchByUserId(ctx context.Context, tx *sql.Tx, id model.UserId) *model.Session {
+	row, err := s.SelectRow(ctx, tx, s.matchingUserId(id))
+	if err != nil {
+		if errors.Is(err, model.ErrSessionNotFound) {
+			return nil
+		} else {
+			panic(err)
+		}
+	}
+	return s.DecodeRow(row)
+}
+
+// //////////////////////////////////////////////////
 // delete
 
 func (s *sessionStore) Delete(ctx context.Context, tx *sql.Tx, token model.SessionToken) {
@@ -89,19 +110,37 @@ func (s *sessionStore) Delete(ctx context.Context, tx *sql.Tx, token model.Sessi
 }
 
 // //////////////////////////////////////////////////
-// delete
+// clean-up
 
 func (s *sessionStore) CleanUp(ctx context.Context, tx *sql.Tx, refTime time.Time) {
 	s.DeleteRows(ctx, tx, s.olderThan(refTime))
 }
 
 // //////////////////////////////////////////////////
+// list
+
+func (s *sessionStore) List(ctx context.Context, tx *sql.Tx) []*model.Session {
+	return util.Convert(s.ListRows(ctx, tx, util.NoWhereClause), s.DecodeRow)
+}
+
+// //////////////////////////////////////////////////
+// flush
+
+func (s *sessionStore) Flush(ctx context.Context, tx *sql.Tx) {
+	s.DeleteRows(ctx, tx, util.NoWhereClause)
+}
+
+// //////////////////////////////////////////////////
 // where clause
+
+func (s *sessionStore) matchingUserId(id model.UserId) util.SqlWhereClause {
+	return util.NewSqlCondition("user_id = %s", id)
+}
 
 func (s *sessionStore) matchingToken(token model.SessionToken) util.SqlWhereClause {
 	return util.NewSqlCondition("token = %s", token)
 }
 
 func (s *sessionStore) olderThan(refTime time.Time) util.SqlWhereClause {
-	return util.NewSqlCondition("expiration < %d", refTime.Unix())
+	return util.NewSqlCondition("expiration < %s", refTime.Unix())
 }

@@ -17,6 +17,8 @@ import (
 // user service
 
 type UserService interface {
+	CreateDefaultAdminUser(ctx context.Context) error
+
 	ListUsers(ctx context.Context) ([]*model.User, error)
 	CreateUser(ctx context.Context, user *model.User) (*model.User, error)
 	RetrieveUser(ctx context.Context, id model.UserId) (*model.User, error)
@@ -29,19 +31,79 @@ type UserService interface {
 	CheckUser(ctx context.Context, login *model.LoginRequest) (*model.User, error)
 }
 
-func NewUserService(logger *zap.Logger, db *sql.DB, userStore store.UserStore) UserService {
+func NewUserService(logger *zap.Logger, db *sql.DB, userStore store.UserStore, defaultAdminUser *model.User) UserService {
 	return &userService{
-		logger:    logger,
-		db:        db,
-		userStore: userStore,
+		logger:           logger,
+		db:               db,
+		userStore:        userStore,
+		defaultAdminUser: defaultAdminUser,
 	}
 }
 
 type userService struct {
-	logger    *zap.Logger
-	db        *sql.DB
-	userStore store.UserStore
+	logger           *zap.Logger
+	db               *sql.DB
+	userStore        store.UserStore
+	defaultAdminUser *model.User
 }
+
+// //////////////////////////////////////////////////
+// create default admin user
+
+func (s *userService) CreateDefaultAdminUser(ctx context.Context) error {
+
+	err := util.SqlTransaction(ctx, s.db, func(tx *sql.Tx) {
+
+		//
+		// check if admin user exists
+		//
+
+		s.logger.Info("[DEBUG] init")
+		adminUser := s.userStore.SearchByName(ctx, tx, s.defaultAdminUser.Name)
+		if adminUser == nil {
+
+			//
+			// create default admin user
+			//
+
+			user := &model.User{
+				Name:     s.defaultAdminUser.Name,
+				Password: s.defaultAdminUser.Password,
+				Permissions: []model.Permission{
+					model.Permission_User,
+					model.Permission_Theme,
+				},
+			}
+
+			//
+			// hash password
+			//
+
+			err := user.HashPassword()
+			if err != nil {
+				panic(err)
+			}
+
+			//
+			// create user
+			//
+
+			s.logger.Info(fmt.Sprintf("[DEBUG] create default admin user: %#v", user))
+			_ = s.userStore.Create(ctx, tx, user)
+
+		}
+	})
+
+	if err != nil {
+		s.logger.Info("[ KO ] create default admin user", zap.Error(err))
+		return err
+	}
+	s.logger.Info("[ OK ] create default admin user")
+	return nil
+}
+
+// //////////////////////////////////////////////////
+// list
 
 func (s *userService) ListUsers(ctx context.Context) ([]*model.User, error) {
 
@@ -73,17 +135,13 @@ func (s *userService) CreateUser(ctx context.Context, user *model.User) (*model.
 	err := util.SqlTransaction(ctx, s.db, func(tx *sql.Tx) {
 
 		//
-		// compute password hash
+		// hash password
 		//
 
-		if user.Password == "" {
-			panic(model.ErrInvalidPassword)
-		}
-		newHash, err := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
+		err := user.HashPassword()
 		if err != nil {
 			panic(err)
 		}
-		user.Hash = string(newHash)
 
 		//
 		// create user
@@ -292,7 +350,11 @@ func (s *userService) CheckUser(ctx context.Context, login *model.LoginRequest) 
 		//
 
 		s.logger.Info(fmt.Sprintf("[DEBUG] retrieve user %s", login.Name))
-		user = s.userStore.RetrieveFromName(ctx, tx, login.Name)
+		user = s.userStore.SearchByName(ctx, tx, login.Name)
+		if user == nil {
+			s.logger.Info(fmt.Sprintf("[DEBUG] user %s not found", login.Name))
+			panic(model.ErrUserNotFound)
+		}
 
 		//
 		// check password
