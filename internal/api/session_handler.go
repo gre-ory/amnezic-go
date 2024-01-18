@@ -144,6 +144,7 @@ func (h *sessionHandler) handleLogin(resp http.ResponseWriter, req *http.Request
 
 	var loginRequest *model.LoginRequest
 	var session *model.Session
+	var user *model.User
 	var err error
 
 	switch {
@@ -164,7 +165,7 @@ func (h *sessionHandler) handleLogin(resp http.ResponseWriter, req *http.Request
 		// execute
 		//
 
-		session, err = h.sessionService.Login(ctx, loginRequest)
+		session, user, err = h.sessionService.Login(ctx, loginRequest)
 		if err != nil {
 			break
 		}
@@ -175,7 +176,7 @@ func (h *sessionHandler) handleLogin(resp http.ResponseWriter, req *http.Request
 
 		resp.Header().Set("Content-Type", "application/json")
 		resp.WriteHeader(http.StatusOK)
-		err = json.NewEncoder(resp).Encode(toJsonSessionResponse(session))
+		err = json.NewEncoder(resp).Encode(toJsonSessionResponse(session, user))
 		if err != nil {
 			break
 		}
@@ -294,10 +295,11 @@ func toJsonSessionsResponse(sessions []*model.Session) *JsonSessionsResponse {
 	}
 }
 
-func toJsonSessionResponse(session *model.Session) *JsonSessionResponse {
+func toJsonSessionResponse(session *model.Session, user *model.User) *JsonSessionResponse {
 	return &JsonSessionResponse{
 		Success: true,
 		Session: toJsonSession(session),
+		User:    toJsonUser(user),
 	}
 }
 
@@ -317,6 +319,7 @@ type JsonSessionsResponse struct {
 type JsonSessionResponse struct {
 	Success bool         `json:"success,omitempty"`
 	Session *JsonSession `json:"session,omitempty"`
+	User    *JsonUser    `json:"user,omitempty"`
 }
 
 type JsonSession struct {
