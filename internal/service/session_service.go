@@ -19,7 +19,7 @@ import (
 // session service
 
 type SessionService interface {
-	Login(ctx context.Context, login *model.LoginRequest) (*model.Session, error)
+	Login(ctx context.Context, login *model.LoginRequest) (*model.Session, *model.User, error)
 	IsGranted(ctx context.Context, token model.SessionToken, permission model.Permission) (*model.User, error)
 	Logout(ctx context.Context, token model.SessionToken) error
 
@@ -94,7 +94,7 @@ func (s *sessionService) FlushSessions(ctx context.Context) error {
 // //////////////////////////////////////////////////
 // login
 
-func (s *sessionService) Login(ctx context.Context, login *model.LoginRequest) (*model.Session, error) {
+func (s *sessionService) Login(ctx context.Context, login *model.LoginRequest) (*model.Session, *model.User, error) {
 
 	now := time.Now()
 
@@ -156,10 +156,10 @@ func (s *sessionService) Login(ctx context.Context, login *model.LoginRequest) (
 
 	if err != nil {
 		s.logger.Info(fmt.Sprintf("[ KO ] login for user %s", login.Name), zap.Error(err))
-		return nil, err
+		return nil, nil, err
 	}
-	s.logger.Info(fmt.Sprintf("[ OK ] login for user %s", login.Name), zap.Object("session", session))
-	return session, nil
+	s.logger.Info(fmt.Sprintf("[ OK ] login for user %s", login.Name), zap.Object("session", session), zap.Object("user", user))
+	return session, user, nil
 }
 
 func (s *sessionService) newSession(userId model.UserId, ttl time.Duration) (*model.Session, error) {
