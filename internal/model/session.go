@@ -22,6 +22,9 @@ type Session struct {
 	Token      SessionToken
 	UserId     UserId
 	Expiration time.Time
+
+	// consolidated data
+	User *User
 }
 
 func (o *Session) IsExpired() bool {
@@ -38,7 +41,11 @@ func (o *Session) Copy() *Session {
 
 func (o *Session) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	enc.AddString("token", string(o.Token))
-	enc.AddInt64("user-id", o.UserId.ToInt64())
+	if o.User != nil {
+		enc.AddObject("user", o.User)
+	} else {
+		enc.AddInt64("user-id", o.UserId.ToInt64())
+	}
 	enc.AddTime("expiration", o.Expiration)
 	return nil
 }

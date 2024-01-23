@@ -38,15 +38,15 @@ func (h *userHandler) RegisterRoutes(router *httprouter.Router) {
 
 	router.HandlerFunc(http.MethodPut, "/api/user/set-up", h.handleUserSetUp)
 
-	hasUserPermission := NewPermissionGranter(h.logger, h.sessionService, model.Permission_User)
+	withUserPermission := WithPermission(h.logger, h.sessionService, model.Permission_User)
 
-	router.HandlerFunc(http.MethodGet, "/api/user", Protect(hasUserPermission, h.handleListUser))
-	router.HandlerFunc(http.MethodPut, "/api/user/new", Protect(hasUserPermission, h.handleCreateUser))
-	router.HandlerFunc(http.MethodGet, "/api/user/:user_id", Protect(hasUserPermission, h.handleRetrieveUser))
-	router.HandlerFunc(http.MethodPost, "/api/user/:user_id", Protect(hasUserPermission, h.handleUpdateUser))
-	router.HandlerFunc(http.MethodDelete, "/api/user/:user_id", Protect(hasUserPermission, h.handleDeleteUser))
-	router.HandlerFunc(http.MethodPut, "/api/user-permission/:user_id/:permission", Protect(hasUserPermission, h.handleAddPermission))
-	router.HandlerFunc(http.MethodDelete, "/api/user-permission/:user_id/:permission", Protect(hasUserPermission, h.handleRemovePermission))
+	router.HandlerFunc(http.MethodGet, "/api/user", withUserPermission(h.handleListUser))
+	router.HandlerFunc(http.MethodGet, "/api/user/:user_id", withUserPermission(h.handleRetrieveUser))
+	router.HandlerFunc(http.MethodPut, "/api/user/new", withUserPermission(h.handleCreateUser))
+	router.HandlerFunc(http.MethodPost, "/api/user/:user_id", withUserPermission(h.handleUpdateUser))
+	router.HandlerFunc(http.MethodDelete, "/api/user/:user_id", withUserPermission(h.handleDeleteUser))
+	router.HandlerFunc(http.MethodPut, "/api/user-permission/:user_id/:permission", withUserPermission(h.handleAddPermission))
+	router.HandlerFunc(http.MethodDelete, "/api/user-permission/:user_id/:permission", withUserPermission(h.handleRemovePermission))
 }
 
 // //////////////////////////////////////////////////

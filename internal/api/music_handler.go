@@ -16,16 +16,18 @@ import (
 // //////////////////////////////////////////////////
 // music handler
 
-func NewMusichandler(logger *zap.Logger, service service.MusicService) Handler {
+func NewMusichandler(logger *zap.Logger, service service.MusicService, sessionService service.SessionService) Handler {
 	return &musicHandler{
-		logger:  logger,
-		service: service,
+		logger:         logger,
+		service:        service,
+		sessionService: sessionService,
 	}
 }
 
 type musicHandler struct {
-	logger  *zap.Logger
-	service service.MusicService
+	logger         *zap.Logger
+	service        service.MusicService
+	sessionService service.SessionService
 }
 
 // //////////////////////////////////////////////////
@@ -33,10 +35,13 @@ type musicHandler struct {
 
 func (h *musicHandler) RegisterRoutes(router *httprouter.Router) {
 	router.HandlerFunc(http.MethodGet, "/api/deezer/music", h.handleSearchDeezerMusic)
-	router.HandlerFunc(http.MethodPut, "/api/music/new", h.handleCreateMusic)
 	router.HandlerFunc(http.MethodGet, "/api/music/:music_id", h.handleRetrieveMusic)
-	router.HandlerFunc(http.MethodPost, "/api/music/:music_id", h.handleUpdateMusic)
-	router.HandlerFunc(http.MethodDelete, "/api/music/:music_id", h.handleDeleteMusic)
+
+	withMusicPermission := WithPermission(h.logger, h.sessionService, model.Permission_Music)
+
+	router.HandlerFunc(http.MethodPut, "/api/music/new", withMusicPermission(h.handleCreateMusic))
+	router.HandlerFunc(http.MethodPost, "/api/music/:music_id", withMusicPermission(h.handleUpdateMusic))
+	router.HandlerFunc(http.MethodDelete, "/api/music/:music_id", withMusicPermission(h.handleDeleteMusic))
 }
 
 // //////////////////////////////////////////////////

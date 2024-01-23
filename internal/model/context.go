@@ -5,42 +5,40 @@ import (
 )
 
 // //////////////////////////////////////////////////
-// session token
+// session
 
-type sessionTokenKeyType int
+type sessionKeyType int
 
-var sessionTokenKey sessionTokenKeyType
+var sessionKey sessionKeyType
 
-func WithSessionToken(ctx context.Context, token SessionToken) context.Context {
-	return context.WithValue(ctx, sessionTokenKey, token)
+func WithSession(ctx context.Context, session *Session) context.Context {
+	return context.WithValue(ctx, sessionKey, session)
+}
+
+func GetSession(ctx context.Context) *Session {
+	if session, ok := ctx.Value(sessionKey).(*Session); ok {
+		return session
+	}
+	return nil
 }
 
 func GetSessionToken(ctx context.Context) SessionToken {
-	if token, ok := ctx.Value(sessionTokenKey).(SessionToken); ok {
-		return token
+	if session := GetSession(ctx); session != nil {
+		return session.Token
 	}
 	return ""
 }
 
-// //////////////////////////////////////////////////
-// user
-
-type userKeyType int
-
-var userKey userKeyType
-
-func WithUser(ctx context.Context, user *User) context.Context {
-	return context.WithValue(ctx, userKey, user)
-}
-
-func GetUser(ctx context.Context) *User {
-	if user, ok := ctx.Value(userKey).(*User); ok {
-		return user
+func GetCurrentUser(ctx context.Context) *User {
+	if session := GetSession(ctx); session != nil {
+		return session.User
 	}
 	return nil
 }
 
 func IsCurrentUser(ctx context.Context, id UserId) bool {
-	currentUser := GetUser(ctx)
-	return currentUser != nil && currentUser.Id == id
+	if currentUser := GetCurrentUser(ctx); currentUser != nil {
+		return currentUser.Id == id
+	}
+	return false
 }

@@ -130,9 +130,10 @@ func (s *BackendServer) Run(ctx context.Context) {
 	//
 
 	gameHandler := api.NewGamehandler(s.logger, gameService)
-	musicHandler := api.NewMusichandler(s.logger, musicService)
-	themeHandler := api.NewThemehandler(s.logger, themeService, musicService, sessionService)
 	playlistHandler := api.NewPlaylisthandler(s.logger, musicService)
+
+	musicHandler := api.NewMusichandler(s.logger, musicService, sessionService)
+	themeHandler := api.NewThemehandler(s.logger, themeService, musicService, sessionService)
 	userHandler := api.NewUserHandler(s.logger, userService, sessionService)
 	sessionHandler := api.NewSessionhandler(s.logger, sessionService)
 
@@ -281,7 +282,7 @@ func AllowCORS(logger *zap.Logger, whitelistOrigins []string) func(http.Handler)
 				logger.Info(fmt.Sprintf("[COR] OK - Origin: %s", origin))
 				w.Header().Set("Access-Control-Allow-Origin", origin)
 				w.Header().Set("Access-Control-Allow-Methods", "*")
-				w.Header().Set("Access-Control-Allow-Headers", "content-type")
+				w.Header().Set("Access-Control-Allow-Headers", "content-type,authorization")
 			} else {
 				logger.Info(fmt.Sprintf("[COR] BLOCKED - Origin: %s", origin))
 			}

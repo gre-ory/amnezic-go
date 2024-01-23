@@ -28,6 +28,13 @@ func Protect(granter Granter, nextHandler http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
+func WithPermission(logger *zap.Logger, sessionService service.SessionService, permission model.Permission) func(http.HandlerFunc) http.HandlerFunc {
+	granter := NewPermissionGranter(logger, sessionService, permission)
+	return func(nextHanlder http.HandlerFunc) http.HandlerFunc {
+		return Protect(granter, nextHanlder)
+	}
+}
+
 func NewPermissionGranter(logger *zap.Logger, sessionService service.SessionService, permission model.Permission) Granter {
 	return &permissionGranter{
 		logger:         logger,
@@ -53,18 +60,17 @@ func (g *permissionGranter) Grant(req *http.Request) (*http.Request, error) {
 		g.logger.Info("unable to extract session token", zap.Error(err))
 		return req, err
 	}
-	req = req.WithContext(model.WithSessionToken(req.Context(), token))
 
 	//
 	// check session token
 	//
 
-	user, err := g.sessionService.IsGranted(req.Context(), token, g.permission)
+	session, err := g.sessionService.IsGranted(req.Context(), token, g.permission)
 	if err != nil {
 		g.logger.Info(fmt.Sprintf("user not granted for permission %s", g.permission), zap.Error(err))
 		return req, err
 	}
-	req = req.WithContext(model.WithUser(req.Context(), user))
+	req = req.WithContext(model.WithSession(req.Context(), session))
 
 	g.logger.Info(fmt.Sprintf("user granted for permission %s", g.permission), zap.Error(err))
 	return req, nil
