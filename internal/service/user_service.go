@@ -55,35 +55,42 @@ func (s *userService) CreateDefaultAdminUser(ctx context.Context) error {
 	err := util.SqlTransaction(ctx, s.db, func(tx *sql.Tx) {
 
 		//
-		// check if admin user exists
-		//
-
-		s.logger.Info("[DEBUG] init")
-		adminUser := s.userStore.SearchByName(ctx, tx, s.defaultAdminUser.Name)
-		if adminUser != nil {
-			panic(model.ErrExistingUser)
-		}
-
-		//
 		// create default admin user
 		//
 
 		user := &model.User{
-			Name:     s.defaultAdminUser.Name,
-			Password: s.defaultAdminUser.Password,
-			Permissions: []model.Permission{
-				model.Permission_User,
-				model.Permission_Theme,
-			},
+			Name:        s.defaultAdminUser.Name,
+			Password:    s.defaultAdminUser.Password,
+			Permissions: model.AllPermissions(),
 		}
 
 		//
 		// hash password
 		//
 
+		s.logger.Info(fmt.Sprintf("[DEBUG] hash password: %s", user.Password))
 		err := user.HashPassword()
 		if err != nil {
 			panic(err)
+		}
+		s.logger.Info(fmt.Sprintf("[DEBUG] >>> hash: %s", user.Hash))
+
+		//
+		// check if admin user exists
+		//
+
+		s.logger.Info("[DEBUG] init")
+		adminUser := s.userStore.SearchByName(ctx, tx, s.defaultAdminUser.Name)
+		if adminUser != nil {
+			user.Id = adminUser.Id
+
+			//
+			// update user
+			//
+
+			s.logger.Info(fmt.Sprintf("[DEBUG] update default admin user: %#v", user))
+			_ = s.userStore.Update(ctx, tx, user)
+			return
 		}
 
 		//
@@ -143,10 +150,12 @@ func (s *userService) CreateUser(ctx context.Context, user *model.User) (*model.
 		// hash password
 		//
 
+		s.logger.Info(fmt.Sprintf("[DEBUG] hash password: %s", user.Password))
 		err := user.HashPassword()
 		if err != nil {
 			panic(err)
 		}
+		s.logger.Info(fmt.Sprintf("[DEBUG] >>> hash: %s", user.Hash))
 
 		//
 		// create user

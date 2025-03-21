@@ -26,3 +26,14 @@ func ToAny[T any](value T) any {
 func TsToStr(ts int64) string {
 	return time.Unix(ts, 0).Format(time.DateTime)
 }
+
+func ToStr[T any](value T) string {
+	if stringer, ok := any(value).(fmt.Stringer); ok {
+		return stringer.String()
+	}
+	return fmt.Sprintf("%v", value)
+}
+
+func PairToStr[K any, V any](key K, value V) string {
+	return fmt.Sprintf("%s:%s", ToStr[K](key), ToStr[V](value))
+}

@@ -16,45 +16,67 @@ import (
 // music service
 
 type MusicService interface {
-	SearchDeezerMusic(ctx context.Context, search *model.SearchMusicRequest) ([]*model.Music, error)
+	SearchDeezerPlaylist(ctx context.Context, search *model.SearchDeezerPlaylistRequest) ([]*model.Playlist, error)
+	GetDeezerPlaylist(ctx context.Context, id model.DeezerPlaylistId) (*model.Playlist, error)
+
+	SearchDeezerMusic(ctx context.Context, search *model.SearchDeezerMusicRequest) ([]*model.Music, error)
 	AddDeezerMusic(ctx context.Context, deezerId model.DeezerMusicId) (*model.Music, error)
 
+	ListMusic(ctx context.Context, filter *model.MusicFilter) ([]*model.Music, error)
 	GetMusic(ctx context.Context, id model.MusicId) (*model.Music, error)
+	CreateMusic(ctx context.Context, music *model.Music) (*model.Music, error)
 	UpdateMusic(ctx context.Context, music *model.Music) (*model.Music, error)
 	DeleteMusic(ctx context.Context, id model.MusicId) error
-
-	SearchDeezerPlaylist(ctx context.Context, search *model.SearchPlaylistRequest) ([]*model.Playlist, error)
-	GetDeezerPlaylist(ctx context.Context, id model.DeezerPlaylistId) (*model.Playlist, error)
 }
 
-func NewMusicService(logger *zap.Logger, deezerClient client.DeezerClient, db *sql.DB, musicStore store.MusicStore, albumStore store.MusicAlbumStore, artistStore store.MusicArtistStore, themeStore store.ThemeStore, themeQuestionStore store.ThemeQuestionStore) MusicService {
+func NewMusicService(logger *zap.Logger, deezerClient client.DeezerClient, downloadClient client.DownloadClient, db *sql.DB, musicStore store.MusicStore, albumStore store.MusicAlbumStore, artistStore store.MusicArtistStore, themeStore store.ThemeStore, themeQuestionStore store.ThemeQuestionStore, musicFileValidator model.PathValidator, imageFileValidator model.PathValidator) MusicService {
 	return &musicService{
 		logger:             logger,
 		deezerClient:       deezerClient,
+		downloadClient:     downloadClient,
 		db:                 db,
 		musicStore:         musicStore,
 		albumStore:         albumStore,
 		artistStore:        artistStore,
 		themeStore:         themeStore,
 		themeQuestionStore: themeQuestionStore,
+		musicFileValidator: musicFileValidator,
+		imageFileValidator: imageFileValidator,
 	}
 }
 
 type musicService struct {
 	logger             *zap.Logger
 	deezerClient       client.DeezerClient
+	downloadClient     client.DownloadClient
 	db                 *sql.DB
 	musicStore         store.MusicStore
 	albumStore         store.MusicAlbumStore
 	artistStore        store.MusicArtistStore
 	themeStore         store.ThemeStore
 	themeQuestionStore store.ThemeQuestionStore
+	musicFileValidator model.PathValidator
+	imageFileValidator model.PathValidator
+}
+
+// //////////////////////////////////////////////////
+// search playlist
+
+func (s *musicService) SearchDeezerPlaylist(ctx context.Context, search *model.SearchDeezerPlaylistRequest) ([]*model.Playlist, error) {
+	return s.deezerClient.SearchPlaylist(search)
+}
+
+// //////////////////////////////////////////////////
+// get playlist
+
+func (s *musicService) GetDeezerPlaylist(ctx context.Context, id model.DeezerPlaylistId) (*model.Playlist, error) {
+	return s.deezerClient.GetPlaylist(id, true /* with tracks */)
 }
 
 // //////////////////////////////////////////////////
 // search deezer music
 
-func (s *musicService) SearchDeezerMusic(ctx context.Context, search *model.SearchMusicRequest) ([]*model.Music, error) {
+func (s *musicService) SearchDeezerMusic(ctx context.Context, search *model.SearchDeezerMusicRequest) ([]*model.Music, error) {
 	return s.deezerClient.SearchMusic(search)
 }
 
@@ -83,6 +105,16 @@ func (s *musicService) AddDeezerMusic(ctx context.Context, deezerId model.Deezer
 		return nil, err
 	}
 	s.logger.Info("[DEBUG] music... 1", zap.Object("music", music))
+
+	//
+	// download remote files
+	//
+
+	s.DownloadRemoteFiles(ctx, music)
+
+	//
+	// create music
+	//
 
 	err = util.SqlTransaction(ctx, s.db, func(tx *sql.Tx) {
 
@@ -169,6 +201,115 @@ func (s *musicService) AddDeezerMusic(ctx context.Context, deezerId model.Deezer
 }
 
 // //////////////////////////////////////////////////
+// list music
+
+func (s *musicService) ListMusic(ctx context.Context, filter *model.MusicFilter) ([]*model.Music, error) {
+	var musics []*model.Music
+	err := util.SqlTransaction(ctx, s.db, func(tx *sql.Tx) {
+		musics = s.musicStore.List(ctx, tx, filter)
+	})
+	if err != nil {
+		s.logger.Info("[ KO ] list music", zap.Error(err))
+		return nil, err
+	}
+	s.logger.Info("[ OK ] list music")
+	return musics, nil
+}
+
+// //////////////////////////////////////////////////
+// create music
+
+func (s *musicService) CreateMusic(ctx context.Context, music *model.Music) (*model.Music, error) {
+
+	var album *model.MusicAlbum
+	var artist *model.MusicArtist
+	var err error
+
+	//
+	// validate
+	//
+
+	if music == nil {
+		return nil, model.ErrMissingMusic
+	}
+	if err = music.Validate(s.musicFileValidator, s.imageFileValidator); err != nil {
+		return nil, err
+	}
+
+	//
+	// download remote files
+	//
+
+	s.DownloadRemoteFiles(ctx, music)
+
+	//
+	// create
+	//
+
+	err = util.SqlTransaction(ctx, s.db, func(tx *sql.Tx) {
+
+		//
+		// check if music exists
+		//
+
+		s.logger.Info(fmt.Sprintf("[DEBUG] retrieve music from name %q", music.Name))
+		orig := s.musicStore.SearchByName(ctx, tx, music.Name)
+		if orig != nil {
+			panic(model.ErrExistingMusic)
+		}
+
+		//
+		// create album ( if necessary )
+		//
+
+		s.logger.Info("[DEBUG] music... 2", zap.Object("music", music))
+		if music.Album != nil && music.Album.Name != "" {
+			s.logger.Info(fmt.Sprintf("[DEBUG] retrieve album from name %q", music.Album.Name))
+			album = s.albumStore.SearchByName(ctx, tx, music.Album.Name)
+			if album == nil {
+				s.logger.Info(fmt.Sprintf("[DEBUG] create album: %#v", music.Album.Copy()))
+				album = s.albumStore.Create(ctx, tx, music.Album)
+			}
+			music.AlbumId = album.Id
+		}
+
+		//
+		// create artist ( if necessary )
+		//
+
+		if music.Artist != nil && music.Artist.Name != "" {
+			s.logger.Info("[DEBUG] music... 2.a", zap.Object("music", music))
+			s.logger.Info(fmt.Sprintf("[DEBUG] retrieve artist from name %q", music.Artist.Name))
+			artist = s.artistStore.SearchByName(ctx, tx, music.Artist.Name)
+			if artist == nil {
+				s.logger.Info(fmt.Sprintf("[DEBUG] create artist: %#v", music.Artist.Copy()))
+				artist = s.artistStore.Create(ctx, tx, music.Artist)
+			}
+			music.ArtistId = artist.Id
+		}
+
+		//
+		// create music
+		//
+
+		s.logger.Info(fmt.Sprintf("[DEBUG] create music: %#v", music.Copy()))
+		s.logger.Info("[DEBUG] music... 3", zap.Object("music", music))
+		music = s.musicStore.Create(ctx, tx, music)
+		s.logger.Info("[DEBUG] music... 4", zap.Object("music", music))
+		music.Album = album
+		music.Artist = artist
+	})
+
+	if err != nil {
+		s.logger.Info(fmt.Sprintf("[ KO ] create music %q", music.Name), zap.Error(err))
+		return nil, err
+	}
+	s.logger.Info(fmt.Sprintf("[ OK ] create music %q", music.Name))
+	return music, nil
+
+}
+
+// //////////////////////////////////////////////////
 // get music
 
 func (s *musicService) GetMusic(ctx context.Context, id model.MusicId) (*model.Music, error) {
@@ -222,11 +363,34 @@ func (s *musicService) GetMusic(ctx context.Context, id model.MusicId) (*model.M
 
 func (s *musicService) UpdateMusic(ctx context.Context, music *model.Music) (*model.Music, error) {
 
+	//
+	// pre-validate
+	//
+
+	if err := music.Validate(nil, nil); err != nil {
+		return nil, err
+	}
+
+	//
+	// download remote files
+	//
+
+	s.DownloadRemoteFiles(ctx, music)
+
+	//
+	// update
+	//
+
 	var updated *model.Music
 	err := util.SqlTransaction(ctx, s.db, func(tx *sql.Tx) {
 		updated = s.musicStore.Update(ctx, tx, music)
 		updated.Artist = s.artistStore.Update(ctx, tx, music.Artist)
 		updated.Album = s.albumStore.Update(ctx, tx, music.Album)
+
+		if err := updated.Validate(s.musicFileValidator, s.imageFileValidator); err != nil {
+			panic(err)
+		}
+
 		updated.Questions = s.themeQuestionStore.List(ctx, tx, &model.ThemeQuestionFilter{MusicId: music.Id})
 		updated.Questions = util.Convert(updated.Questions, s.AttachTheme(ctx, tx))
 	})
@@ -310,15 +474,30 @@ func (s *musicService) AttachTheme(ctx context.Context, tx *sql.Tx) func(questio
 }
 
 // //////////////////////////////////////////////////
-// search playlist
+// download remote files
 
-func (s *musicService) SearchDeezerPlaylist(ctx context.Context, search *model.SearchPlaylistRequest) ([]*model.Playlist, error) {
-	return s.deezerClient.SearchPlaylist(search)
+func (s *musicService) DownloadRemoteFiles(ctx context.Context, music *model.Music) {
+	if music == nil {
+		return
+	}
+	downloadMusic(s.logger, s.downloadClient, music)
+	downloadArtistImage(s.logger, s.downloadClient, music.Artist)
+	downloadAlbumImage(s.logger, s.downloadClient, music.Album)
 }
 
-// //////////////////////////////////////////////////
-// get playlist
-
-func (s *musicService) GetDeezerPlaylist(ctx context.Context, id model.DeezerPlaylistId) (*model.Playlist, error) {
-	return s.deezerClient.GetPlaylist(id, true /* with tracks */)
+func downloadMusic(logger *zap.Logger, downloadClient client.DownloadClient, music *model.Music) {
+	if music == nil {
+		return
+	}
+	if music.Mp3Url.IsRemote() {
+		fileName := music.GetMp3FileName()
+		url := music.Mp3Url
+		err := downloadClient.DownloadMusic(url, fileName)
+		if err != nil {
+			logger.Info(fmt.Sprintf("[ KO ] download music %s <<< %q", fileName, url), zap.Error(err))
+		} else {
+			logger.Info(fmt.Sprintf("[ OK ] download music %s <<< %q", fileName, url))
+			music.Mp3Url = fileName
+		}
+	}
 }

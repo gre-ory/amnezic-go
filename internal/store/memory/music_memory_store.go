@@ -27,6 +27,16 @@ var (
 	NextMusicId = 0
 )
 
+func (s *musicMemoryStore) List(ctx context.Context, tx *sql.Tx, filter *model.MusicFilter) []*model.Music {
+	filtered := make([]*model.Music, 0, len(s.musics))
+	for _, music := range s.musics {
+		if filter.IsMatching(len(filtered), music) {
+			filtered = append(filtered, music)
+		}
+	}
+	return filtered
+}
+
 func (s *musicMemoryStore) Create(ctx context.Context, _ *sql.Tx, music *model.Music) *model.Music {
 	s.musicsLock.Lock()
 	defer s.musicsLock.Unlock()
@@ -58,6 +68,22 @@ func (s *musicMemoryStore) SearchByDeezerId(ctx context.Context, _ *sql.Tx, deez
 
 	for _, music := range s.musics {
 		if music.DeezerId == deezerId {
+			return music.Copy()
+		}
+	}
+	return nil
+}
+
+func (s *musicMemoryStore) SearchByName(ctx context.Context, _ *sql.Tx, name string) *model.Music {
+	s.musicsLock.Lock()
+	defer s.musicsLock.Unlock()
+
+	if name == "" {
+		panic(model.ErrInvalidMusicName)
+	}
+
+	for _, music := range s.musics {
+		if music.Name == name {
 			return music.Copy()
 		}
 	}

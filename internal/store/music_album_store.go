@@ -13,9 +13,11 @@ import (
 // music album store
 
 type MusicAlbumStore interface {
+	List(ctx context.Context, tx *sql.Tx, filter *model.MusicAlbumFilter) []*model.MusicAlbum
 	Create(ctx context.Context, tx *sql.Tx, music *model.MusicAlbum) *model.MusicAlbum
 	Retrieve(ctx context.Context, tx *sql.Tx, id model.MusicAlbumId) *model.MusicAlbum
 	SearchByDeezerId(ctx context.Context, tx *sql.Tx, deezerId model.DeezerAlbumId) *model.MusicAlbum
+	SearchByName(ctx context.Context, tx *sql.Tx, name string) *model.MusicAlbum
 	Update(ctx context.Context, tx *sql.Tx, music *model.MusicAlbum) *model.MusicAlbum
 	Delete(ctx context.Context, tx *sql.Tx, id model.MusicAlbumId)
 }
@@ -47,7 +49,7 @@ func (s *musicAlbumStore) EncodeRow(obj *model.MusicAlbum) *MusicAlbumRow {
 		Id:       int64(obj.Id),
 		DeezerId: int64(obj.DeezerId),
 		Name:     obj.Name,
-		ImgUrl:   obj.ImgUrl,
+		ImgUrl:   string(obj.ImgUrl),
 	}
 }
 
@@ -59,8 +61,28 @@ func (s *musicAlbumStore) DecodeRow(row *MusicAlbumRow) *model.MusicAlbum {
 		Id:       model.MusicAlbumId(row.Id),
 		DeezerId: model.DeezerAlbumId(row.DeezerId),
 		Name:     row.Name,
-		ImgUrl:   row.ImgUrl,
+		ImgUrl:   model.Url(row.ImgUrl),
 	}
+}
+
+// //////////////////////////////////////////////////
+// list
+
+func (s *musicAlbumStore) List(ctx context.Context, tx *sql.Tx, filter *model.MusicAlbumFilter) []*model.MusicAlbum {
+	return util.Convert(s.ListRows(ctx, tx, s.whereClause(filter)), s.DecodeRow)
+}
+
+func (s *musicAlbumStore) whereClause(filter *model.MusicAlbumFilter) util.SqlWhereClause {
+	wc := util.NewSqlWhereClause()
+	if filter != nil {
+		if filter.Name != "" {
+			wc.WithCondition("name LIKE '%' || $_ || '%'", filter.Name)
+		}
+		if filter.Limit > 0 {
+			wc.WithLimit(filter.Limit)
+		}
+	}
+	return wc
 }
 
 // //////////////////////////////////////////////////
@@ -85,7 +107,15 @@ func (s *musicAlbumStore) Retrieve(ctx context.Context, tx *sql.Tx, id model.Mus
 // retrieve by deezer id
 
 func (s *musicAlbumStore) SearchByDeezerId(ctx context.Context, tx *sql.Tx, deezerId model.DeezerAlbumId) *model.MusicAlbum {
-	row, _ := s.SelectRow(ctx, tx, util.NewSqlCondition("deezer_id = %s", deezerId))
+	row, _ := s.SelectRow(ctx, tx, util.NewSqlCondition("deezer_id = $_", deezerId))
+	return s.DecodeRow(row)
+}
+
+// //////////////////////////////////////////////////
+// retrieve by name
+
+func (s *musicAlbumStore) SearchByName(ctx context.Context, tx *sql.Tx, name string) *model.MusicAlbum {
+	row, _ := s.SelectRow(ctx, tx, util.NewSqlCondition("name = $_", name))
 	return s.DecodeRow(row)
 }
 
@@ -107,5 +137,5 @@ func (s *musicAlbumStore) Delete(ctx context.Context, tx *sql.Tx, id model.Music
 // where clause
 
 func (s *musicAlbumStore) matchingId(id model.MusicAlbumId) util.SqlWhereClause {
-	return util.NewSqlCondition("id = %s", id)
+	return util.NewSqlCondition("id = $_", id)
 }

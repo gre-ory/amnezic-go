@@ -9,20 +9,20 @@ import (
 )
 
 // //////////////////////////////////////////////////
-// search playlist request
+// search deezer playlist request
 
-type SearchPlaylistRequest struct {
+type SearchDeezerPlaylistRequest struct {
 	deezerPlaylistId DeezerPlaylistId
 	query            string
 	limit            int
 	strict           bool
 }
 
-func (o *SearchPlaylistRequest) GetDeezerPlaylistId() DeezerPlaylistId {
+func (o *SearchDeezerPlaylistRequest) GetDeezerPlaylistId() DeezerPlaylistId {
 	return o.deezerPlaylistId
 }
 
-func (o *SearchPlaylistRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+func (o *SearchDeezerPlaylistRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if o.deezerPlaylistId != 0 {
 		enc.AddInt64("deezer-playlist-id", int64(o.deezerPlaylistId))
 	}
@@ -41,26 +41,26 @@ func (o *SearchPlaylistRequest) MarshalLogObject(enc zapcore.ObjectEncoder) erro
 // //////////////////////////////////////////////////
 // builder
 
-func NewSearchPlaylistRequest() *SearchPlaylistRequest {
-	return &SearchPlaylistRequest{}
+func NewSearchDeezerPlaylistRequest() *SearchDeezerPlaylistRequest {
+	return &SearchDeezerPlaylistRequest{}
 }
 
-func (r *SearchPlaylistRequest) WithQuery(query string) *SearchPlaylistRequest {
+func (r *SearchDeezerPlaylistRequest) WithQuery(query string) *SearchDeezerPlaylistRequest {
 	r.query = query
 	return r
 }
 
-func (r *SearchPlaylistRequest) WithDeezerPlaylistId(deezerPlaylistId DeezerPlaylistId) *SearchPlaylistRequest {
+func (r *SearchDeezerPlaylistRequest) WithDeezerPlaylistId(deezerPlaylistId DeezerPlaylistId) *SearchDeezerPlaylistRequest {
 	r.deezerPlaylistId = deezerPlaylistId
 	return r
 }
 
-func (r *SearchPlaylistRequest) WithLimit(limit int) *SearchPlaylistRequest {
+func (r *SearchDeezerPlaylistRequest) WithLimit(limit int) *SearchDeezerPlaylistRequest {
 	r.limit = limit
 	return r
 }
 
-func (r *SearchPlaylistRequest) WithStrict(strict bool) *SearchPlaylistRequest {
+func (r *SearchDeezerPlaylistRequest) WithStrict(strict bool) *SearchDeezerPlaylistRequest {
 	r.strict = strict
 	return r
 }
@@ -68,7 +68,7 @@ func (r *SearchPlaylistRequest) WithStrict(strict bool) *SearchPlaylistRequest {
 // //////////////////////////////////////////////////
 // compute query
 
-func (r *SearchPlaylistRequest) ComputeQuery() string {
+func (r *SearchDeezerPlaylistRequest) ComputeQuery() string {
 	parts := []string{}
 	if r.query != "" {
 		parts = append(parts, r.query)
@@ -76,7 +76,7 @@ func (r *SearchPlaylistRequest) ComputeQuery() string {
 	return strings.Join(parts, " ")
 }
 
-func (r *SearchPlaylistRequest) ComputeParameters() string {
+func (r *SearchDeezerPlaylistRequest) ComputeParameters() string {
 	parts := []string{}
 	query := r.ComputeQuery()
 	if query != "" {

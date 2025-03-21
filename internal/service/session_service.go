@@ -135,6 +135,7 @@ func (s *sessionService) Login(ctx context.Context, login *model.LoginRequest) (
 		// check password
 		//
 
+		s.logger.Info(fmt.Sprintf("[DEBUG] check password for user %d: %s >>> %s", user.Id, login.Password, user.Hash))
 		err := bcrypt.CompareHashAndPassword([]byte(user.Hash), []byte(login.Password))
 		if err != nil {
 			s.logger.Info(fmt.Sprintf("[DEBUG] invalid password for user %d", user.Id), zap.Error(err))

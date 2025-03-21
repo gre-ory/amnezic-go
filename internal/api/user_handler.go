@@ -411,7 +411,7 @@ func (h *userHandler) handleAddPermission(resp http.ResponseWriter, req *http.Re
 			break
 		}
 		permission = model.ToPermission(extractPathParameter(req, "permission"))
-		if permission == "" {
+		if permission == 0 {
 			err = model.ErrInvalidPermission
 			break
 		}
@@ -473,7 +473,7 @@ func (h *userHandler) handleRemovePermission(resp http.ResponseWriter, req *http
 			break
 		}
 		permission = model.ToPermission(extractPathParameter(req, "permission"))
-		if permission == "" {
+		if permission == 0 {
 			err = model.ErrInvalidPermission
 			break
 		}

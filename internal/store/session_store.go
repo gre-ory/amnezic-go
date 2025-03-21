@@ -134,13 +134,13 @@ func (s *sessionStore) Flush(ctx context.Context, tx *sql.Tx) {
 // where clause
 
 func (s *sessionStore) matchingUserId(id model.UserId) util.SqlWhereClause {
-	return util.NewSqlCondition("user_id = %s", id)
+	return util.NewSqlCondition("user_id = $_", id)
 }
 
 func (s *sessionStore) matchingToken(token model.SessionToken) util.SqlWhereClause {
-	return util.NewSqlCondition("token = %s", token)
+	return util.NewSqlCondition("token = $_", token)
 }
 
 func (s *sessionStore) olderThan(refTime time.Time) util.SqlWhereClause {
-	return util.NewSqlCondition("expiration < %s", refTime.Unix())
+	return util.NewSqlCondition("expiration < $_", refTime.Unix())
 }
