@@ -37,10 +37,10 @@ func (o *GameSettings) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	enc.AddInt("nb-answer", o.NbAnswer)
 	enc.AddInt("nb-player", o.NbPlayer)
 	if len(o.Sources) > 0 {
-		enc.AddString("sources", util.Join(o.Sources, Source.String))
+		enc.AddString("sources", util.Join(o.Sources, ","))
 	}
 	if len(o.ThemeIds) > 0 {
-		enc.AddString("theme-ids", util.Join(o.ThemeIds, ThemeId.String))
+		enc.AddString("theme-ids", util.Join(o.ThemeIds, ","))
 	}
 	if o.DeezerPlaylistId != 0 {
 		enc.AddInt64("deezer-playlist-id", int64(o.DeezerPlaylistId))

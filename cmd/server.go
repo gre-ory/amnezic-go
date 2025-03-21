@@ -7,7 +7,6 @@ import (
 	"net"
 	"net/http"
 	"os"
-	"regexp"
 	"strings"
 
 	"github.com/gre-ory/amnezic-go/internal/api"
@@ -22,7 +21,6 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"gopkg.in/natefinch/lumberjack.v2"
-	yaml "gopkg.in/yaml.v2"
 
 	_ "github.com/mattn/go-sqlite3" // Import go-sqlite3 library
 )
@@ -38,15 +36,14 @@ func main() {
 	// config
 	//
 
-	config := readConfig()
-	secrets := readSecrets()
+	config := readConfig(ctx)
 
 	//
 	// logger
 	//
 
-	logger := NewLogger(config.Log)
-	logger = logger.With(zap.String("env", config.Env), zap.String("app", config.App), zap.String("version", config.Version))
+	logger := NewLogger(config)
+	logger = logger.With(zap.String("env", config.Env), zap.String("app", fmt.Sprintf("%s %s", config.App.Name, config.App.Version)))
 	logger.Info("starting app...", zap.Any("config", config))
 	// logger.Info("secrets...", zap.Any("secrets", secrets))
 
@@ -54,45 +51,46 @@ func main() {
 	// servers
 	//
 
-	NewBackendServer(logger, config, secrets).Run(ctx)
+	NewServer(logger, config).Run(ctx)
 
 	os.Exit(0)
 }
 
 // //////////////////////////////////////////////////
-// backend server
+// server
 
-func NewBackendServer(logger *zap.Logger, config *Config, secrets *Secrets) *BackendServer {
-	return &BackendServer{
-		logger:  logger.With(zap.String("server", "backend")),
-		config:  config,
-		secrets: secrets,
+func NewServer(logger *zap.Logger, config *Config) *Server {
+	return &Server{
+		logger: logger,
+		config: config,
 	}
 }
 
-type BackendServer struct {
-	logger  *zap.Logger
-	config  *Config
-	secrets *Secrets
+type Server struct {
+	logger *zap.Logger
+	config *Config
 }
 
-func (s *BackendServer) Run(ctx context.Context) {
+func (s *Server) Run(ctx context.Context) {
 
 	//
 	// default admin user
 	//
 
 	defaultAdminUser := &model.User{
-		Name:     s.secrets.DefaultAdmin.Name,
-		Password: s.secrets.DefaultAdmin.Password,
+		Name:     s.config.DefaultAdmin.Name,
+		Password: s.config.DefaultAdmin.Password,
 	}
 
 	//
 	// store
 	//
 
-	db, _ := sql.Open("sqlite3", s.config.Store.SqliteDataSource)
+	db, _ := sql.Open("sqlite3", s.config.Sqlite.DataSource)
 	defer db.Close()
+
+	musicFilter := s.config.MusicFileFilter(s.logger)
+	imageFilter := s.config.ImageFileFilter(s.logger)
 
 	gameStore := memory.NewGameMemoryStore()
 	gameQuestionStore := legacy.NewGameQuestionLegacyStore(s.logger, legacy.RootPath_FreeDotFr)
@@ -108,33 +106,44 @@ func (s *BackendServer) Run(ctx context.Context) {
 	themeQuestionStore := store.NewThemeQuestionStore(s.logger)
 	userStore := store.NewUserStore(s.logger)
 	sessionStore := store.NewSessionStore(s.logger)
+	fileStore := store.NewFileStore(s.logger)
+
+	musicFileValidator := fileStore.PathValidator(ctx, musicFilter)
+	imageFileValidator := fileStore.PathValidator(ctx, imageFilter)
 
 	//
 	// client
 	//
 
 	deezerClient := client.NewDeezerClient(s.logger)
+	downloadClient := client.NewDownloadClient(s.logger, musicFilter, imageFilter)
 
 	//
 	// service
 	//
 
 	gameService := service.NewGameService(s.logger, db, gameStore, gameQuestionStore, musicStore, artistStore, albumStore, themeStore, themeQuestionStore, deezerClient)
-	musicService := service.NewMusicService(s.logger, deezerClient, db, musicStore, albumStore, artistStore, themeStore, themeQuestionStore)
+	musicService := service.NewMusicService(s.logger, deezerClient, downloadClient, db, musicStore, albumStore, artistStore, themeStore, themeQuestionStore, musicFileValidator, imageFileValidator)
+	artistService := service.NewArtistService(s.logger, downloadClient, db, artistStore, musicStore, imageFileValidator)
+	albumService := service.NewAlbumService(s.logger, downloadClient, db, albumStore, musicStore, imageFileValidator)
 	themeService := service.NewThemeService(s.logger, db, themeStore, themeQuestionStore, musicStore, artistStore, albumStore)
 	userService := service.NewUserService(s.logger, db, userStore, defaultAdminUser)
-	sessionService := service.NewSessionService(s.logger, s.secrets.SessionSecretKey, db, sessionStore, userStore)
+	sessionService := service.NewSessionService(s.logger, s.config.Session.SecretKey, db, sessionStore, userStore)
+	fileService := service.NewFileService(s.logger, fileStore)
 
 	//
 	// api
 	//
 
 	gameHandler := api.NewGamehandler(s.logger, gameService)
-	musicHandler := api.NewMusichandler(s.logger, musicService)
-	themeHandler := api.NewThemehandler(s.logger, themeService, musicService, sessionService)
 	playlistHandler := api.NewPlaylisthandler(s.logger, musicService)
+	musicHandler := api.NewMusichandler(s.logger, musicService, sessionService)
+	artistHandler := api.NewArtisthandler(s.logger, artistService, sessionService)
+	albumHandler := api.NewAlbumhandler(s.logger, albumService, sessionService)
+	themeHandler := api.NewThemehandler(s.logger, themeService, musicService, sessionService)
 	userHandler := api.NewUserHandler(s.logger, userService, sessionService)
 	sessionHandler := api.NewSessionhandler(s.logger, sessionService)
+	fileHandler := api.NewFilehandler(s.logger, musicFilter, imageFilter, fileService, sessionService)
 
 	//
 	// router
@@ -143,10 +152,13 @@ func (s *BackendServer) Run(ctx context.Context) {
 	router := httprouter.New()
 	gameHandler.RegisterRoutes(router)
 	musicHandler.RegisterRoutes(router)
+	artistHandler.RegisterRoutes(router)
+	albumHandler.RegisterRoutes(router)
 	themeHandler.RegisterRoutes(router)
 	playlistHandler.RegisterRoutes(router)
 	userHandler.RegisterRoutes(router)
 	sessionHandler.RegisterRoutes(router)
+	fileHandler.RegisterRoutes(router)
 
 	//
 	// server
@@ -165,7 +177,7 @@ func (s *BackendServer) Run(ctx context.Context) {
 	}
 
 	s.logger.Info(fmt.Sprintf("starting backend server on %s", server.Addr))
-	err := server.ListenAndServe()
+	err := server.ListenAndServeTLS(s.config.Server.CrtFile, s.config.Server.KeyFile)
 	if err != nil {
 		s.logger.Fatal("backend server failed", zap.Error(err))
 	}
@@ -203,29 +215,32 @@ func (d *dispatcher) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // //////////////////////////////////////////////////
 // logger
 
-func NewLogger(config LogConfig) *zap.Logger {
+func NewLogger(config *Config) *zap.Logger {
 
 	writer := zapcore.AddSync(&lumberjack.Logger{
-		Filename:   config.File,
+		Filename:   config.Log.File,
 		MaxSize:    100, // megabytes
 		MaxBackups: 10,
 		MaxAge:     30, // days
 	})
 
-	var zapEncoderCfg zapcore.EncoderConfig
-	switch config.Encoder {
+	var zapEncoder zapcore.Encoder
+	switch strings.ToLower(config.Log.Encoder) {
 	case "prd":
-		zapEncoderCfg = zap.NewProductionEncoderConfig()
+		cfg := zap.NewProductionEncoderConfig()
+		zapEncoder = zapcore.NewJSONEncoder(cfg)
 	case "dev":
-		zapEncoderCfg = zap.NewDevelopmentEncoderConfig()
+		cfg := zap.NewDevelopmentEncoderConfig()
+		zapEncoder = zapcore.NewConsoleEncoder(cfg)
 	default:
 		fmt.Printf("invalid LOG_CONFIG >>> FALLBACK to 'prd'!\n")
-		zapEncoderCfg = zap.NewProductionEncoderConfig()
+		cfg := zap.NewProductionEncoderConfig()
+		zapEncoder = zapcore.NewJSONEncoder(cfg)
 	}
 
 	var zapLevel zapcore.Level
-	switch config.Level {
-	case "err":
+	switch strings.ToLower(config.Log.Level) {
+	case "err", "error":
 		zapLevel = zap.ErrorLevel
 	case "warn":
 		zapLevel = zap.WarnLevel
@@ -239,7 +254,7 @@ func NewLogger(config LogConfig) *zap.Logger {
 	}
 
 	core := zapcore.NewCore(
-		zapcore.NewJSONEncoder(zapEncoderCfg),
+		zapEncoder,
 		writer,
 		zapLevel,
 	)
@@ -264,14 +279,6 @@ func WithRequestLogging(logger *zap.Logger) func(http.Handler) http.Handler {
 // //////////////////////////////////////////////////
 // cors
 
-// var whitelistOrigins []string = []string{
-// 	"http://localhost:3000",
-// 	"http://localhost:9090",
-// 	"http://158.178.206.68:8080",
-// 	"http://158.178.206.68:8081",
-// 	"http://158.178.206.68:8082",
-// }
-
 func AllowCORS(logger *zap.Logger, whitelistOrigins []string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -281,127 +288,11 @@ func AllowCORS(logger *zap.Logger, whitelistOrigins []string) func(http.Handler)
 				logger.Info(fmt.Sprintf("[COR] OK - Origin: %s", origin))
 				w.Header().Set("Access-Control-Allow-Origin", origin)
 				w.Header().Set("Access-Control-Allow-Methods", "*")
-				w.Header().Set("Access-Control-Allow-Headers", "content-type")
+				w.Header().Set("Access-Control-Allow-Headers", "content-type,authorization")
 			} else {
 				logger.Info(fmt.Sprintf("[COR] BLOCKED - Origin: %s", origin))
 			}
 			next.ServeHTTP(w, r)
 		})
 	}
-}
-
-// //////////////////////////////////////////////////
-// config
-
-type Config struct {
-	Env     string       `yaml:"env"`
-	App     string       `yaml:"app"`
-	Version string       `yaml:"version"`
-	Log     LogConfig    `yaml:"log"`
-	Server  ServerConfig `yaml:"server"`
-	Store   StoreConfig  `yaml:"store"`
-}
-
-type LogConfig struct {
-	Encoder string `yaml:"encoder"`
-	Level   string `yaml:"level"`
-	File    string `yaml:"file"`
-}
-
-type ServerConfig struct {
-	Address          string   `yaml:"address"`
-	WhiteListOrigins []string `yaml:"white-list-origins"`
-}
-
-type StoreConfig struct {
-	SqliteDataSource string `yaml:"sqlite-data-source"`
-}
-
-func readConfig() *Config {
-
-	path := os.Getenv("CONFIG_FILE")
-	if path == "" {
-		panic(fmt.Errorf("missing CONFIG_FILE env variable"))
-	}
-
-	_, err := os.Stat(path)
-	if err != nil {
-		panic(fmt.Errorf("missing config file: %s", err.Error()))
-	}
-
-	file, err := os.ReadFile(path)
-	if err != nil {
-		panic(fmt.Errorf("unable to read config file %s: %s", path, err.Error()))
-	}
-	fmt.Printf("\n\n ----- %s ----- \n%s\n\n", path, string(file))
-
-	config := Config{}
-	err = yaml.UnmarshalStrict(file, &config)
-	if err != nil {
-		panic(fmt.Errorf("unable to decode config file %s: %s", path, err.Error()))
-	}
-
-	// replace env variables
-	config.Log.File = replaceEnvVariables(config.Log.File)
-	config.Store.SqliteDataSource = replaceEnvVariables(config.Store.SqliteDataSource)
-
-	return &config
-}
-
-// //////////////////////////////////////////////////
-// secrets
-
-type Secrets struct {
-	SessionSecretKey string       `yaml:"session-secret-key"`
-	DefaultAdmin     DefaultAdmin `yaml:"default-admin"`
-}
-
-type DefaultAdmin struct {
-	Name     string `yaml:"name"`
-	Password string `yaml:"password"`
-}
-
-func readSecrets() *Secrets {
-
-	path := os.Getenv("SECRET_FILE")
-	if path == "" {
-		panic(fmt.Errorf("missing SECRET_FILE env variable"))
-	}
-
-	stats, err := os.Stat(path)
-	if err != nil {
-		panic(fmt.Errorf("missing secret file: %s", err.Error()))
-	}
-
-	permissions := stats.Mode().Perm()
-	if permissions != 0o600 {
-		panic(fmt.Errorf("incorrect permissions for secret file %s (0%o), must be 0600 for '%s'", permissions, permissions, path))
-	}
-
-	file, err := os.ReadFile(path)
-	if err != nil {
-		panic(fmt.Errorf("unable to read secret file %s: %s", path, err.Error()))
-	}
-
-	secrets := &Secrets{}
-	err = yaml.UnmarshalStrict(file, secrets)
-	if err != nil {
-		panic(fmt.Errorf("unable to decode secret file %s: %s", path, err.Error()))
-	}
-
-	return secrets
-}
-
-// //////////////////////////////////////////////////
-// env variable
-
-func replaceEnvVariables(value string) string {
-	regexp := regexp.MustCompile(`\$([A-Z_]+)\$`)
-	matches := regexp.FindAllStringSubmatch(value, -1)
-	for _, match := range matches {
-		envVariable := match[1]
-		envValue := os.Getenv(envVariable)
-		value = strings.ReplaceAll(value, match[0], envValue)
-	}
-	return value
 }

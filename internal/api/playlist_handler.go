@@ -42,7 +42,7 @@ func (h *playlistHandler) handleSearchDeezerPlaylist(resp http.ResponseWriter, r
 
 	ctx := req.Context()
 
-	var search *model.SearchPlaylistRequest
+	var search *model.SearchDeezerPlaylistRequest
 	var playlists []*model.Playlist
 	var err error
 
@@ -58,7 +58,7 @@ func (h *playlistHandler) handleSearchDeezerPlaylist(resp http.ResponseWriter, r
 			limit = 100
 		}
 
-		search = model.NewSearchPlaylistRequest().
+		search = model.NewSearchDeezerPlaylistRequest().
 			WithQuery(extractParameter(req, "search")).
 			WithDeezerPlaylistId(model.DeezerPlaylistId(toInt64(extractParameter(req, "playlist_id")))).
 			WithLimit(limit)

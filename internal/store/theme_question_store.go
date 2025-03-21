@@ -136,8 +136,8 @@ func (s *themeQuestionStore) CountByTheme(ctx context.Context, tx *sql.Tx) map[m
 func (s *themeQuestionStore) IsMusicInTheme(ctx context.Context, tx *sql.Tx, themeId model.ThemeId, musicId model.MusicId) bool {
 	return s.ExistsRow(ctx, tx,
 		util.NewSqlWhereClause().
-			WithCondition("theme_id = %s", themeId).
-			WithCondition("music_id = %s", musicId),
+			WithCondition("theme_id = $_", themeId).
+			WithCondition("music_id = $_", musicId),
 	)
 }
 
@@ -146,7 +146,7 @@ func (s *themeQuestionStore) IsMusicInTheme(ctx context.Context, tx *sql.Tx, the
 
 func (s *themeQuestionStore) IsMusicUsed(ctx context.Context, tx *sql.Tx, musicId model.MusicId) bool {
 	return s.ExistsRow(ctx, tx,
-		util.NewSqlCondition("music_id = %s", musicId),
+		util.NewSqlCondition("music_id = $_", musicId),
 	)
 }
 
@@ -154,23 +154,23 @@ func (s *themeQuestionStore) IsMusicUsed(ctx context.Context, tx *sql.Tx, musicI
 // where clause
 
 func (s *themeQuestionStore) matchingId(id model.ThemeQuestionId) util.SqlWhereClause {
-	return util.NewSqlCondition("id = %s", id)
+	return util.NewSqlCondition("id = $_", id)
 }
 
 func (s *themeQuestionStore) whereClause(filter *model.ThemeQuestionFilter) util.SqlWhereClause {
 	wc := util.NewSqlWhereClause()
 	if filter != nil {
 		if filter.ThemeQuestionId != 0 {
-			wc.WithCondition("id = %s", filter.ThemeQuestionId)
+			wc.WithCondition("id = $_", filter.ThemeQuestionId)
 		}
 		if len(filter.ThemeIds) == 1 {
-			wc.WithCondition("theme_id = %s", filter.ThemeIds[0])
+			wc.WithCondition("theme_id = $_", filter.ThemeIds[0])
 		} else if len(filter.ThemeIds) > 1 {
-			placeholders := util.Join(filter.ThemeIds, func(_ model.ThemeId) string { return "%s" })
+			placeholders := util.ConvertAndJoin(filter.ThemeIds, func(_ model.ThemeId) string { return "$_" }, ",")
 			wc.WithCondition("theme_id IN ("+placeholders+")", util.Convert(filter.ThemeIds, util.ToAny[model.ThemeId])...)
 		}
 		if filter.MusicId != 0 {
-			wc.WithCondition("music_id = %s", filter.MusicId)
+			wc.WithCondition("music_id = $_", filter.MusicId)
 		}
 		if filter.Random {
 			wc.WithRandomOrder()

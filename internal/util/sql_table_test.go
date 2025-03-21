@@ -147,7 +147,7 @@ func TestSqlTable(t *testing.T) {
 		var gotRow *TestRow
 		var gotSelectErr error
 		gotErr := util.SqlTransaction(ctx, db, func(tx *sql.Tx) {
-			gotRow, gotSelectErr = table.SelectRow(ctx, tx, util.NewSqlCondition("id = %s", 1002))
+			gotRow, gotSelectErr = table.SelectRow(ctx, tx, util.NewSqlCondition("id = $_", 1002))
 		})
 
 		require.Equal(t, nil, gotErr, "wrong error")
@@ -182,7 +182,7 @@ func TestSqlTable(t *testing.T) {
 		var gotRow *TestRow
 		var gotSelectErr error
 		gotErr := util.SqlTransaction(ctx, db, func(tx *sql.Tx) {
-			gotRow, gotSelectErr = table.SelectRow(ctx, tx, util.NewSqlCondition("id = %s", 1002))
+			gotRow, gotSelectErr = table.SelectRow(ctx, tx, util.NewSqlCondition("id = $_", 1002))
 		})
 
 		require.Equal(t, nil, gotErr, "wrong error")
@@ -213,7 +213,7 @@ func TestSqlTable(t *testing.T) {
 		table := util.NewSqlTable[TestRow](logger, "test", ErrTestRowNotFound)
 		var gotExists bool
 		gotErr := util.SqlTransaction(ctx, db, func(tx *sql.Tx) {
-			gotExists = table.ExistsRow(ctx, tx, util.NewSqlCondition("id = %s", 1002))
+			gotExists = table.ExistsRow(ctx, tx, util.NewSqlCondition("id = $_", 1002))
 		})
 
 		require.Equal(t, nil, gotErr, "wrong error")
@@ -243,7 +243,7 @@ func TestSqlTable(t *testing.T) {
 		table := util.NewSqlTable[TestRow](logger, "test", ErrTestRowNotFound)
 		var gotExists bool
 		gotErr := util.SqlTransaction(ctx, db, func(tx *sql.Tx) {
-			gotExists = table.ExistsRow(ctx, tx, util.NewSqlCondition("id = %s", 1002))
+			gotExists = table.ExistsRow(ctx, tx, util.NewSqlCondition("id = $_", 1002))
 		})
 
 		require.Equal(t, nil, gotErr, "wrong error")
@@ -278,7 +278,7 @@ func TestSqlTable(t *testing.T) {
 				Id:    1001,
 				Name:  "my-name",
 				Value: 99,
-			}, util.NewSqlCondition("id = %s", 1001))
+			}, util.NewSqlCondition("id = $_", 1001))
 		})
 
 		require.Equal(t, nil, gotErr, "wrong error")
@@ -316,7 +316,7 @@ func TestSqlTable(t *testing.T) {
 				Id:    1001,
 				Name:  "my-name",
 				Value: 99,
-			}, util.NewSqlCondition("id = %s", 1001))
+			}, util.NewSqlCondition("id = $_", 1001))
 		})
 
 		require.Equal(t, nil, gotErr, "wrong error")
@@ -344,7 +344,7 @@ func TestSqlTable(t *testing.T) {
 
 		var gotNb int64
 		gotErr := util.SqlTransaction(ctx, db, func(tx *sql.Tx) {
-			gotNb = table.DeleteRows(ctx, tx, util.NewSqlCondition("id = %s", 1001))
+			gotNb = table.DeleteRows(ctx, tx, util.NewSqlCondition("id = $_", 1001))
 		})
 
 		require.Equal(t, nil, gotErr, "wrong error")
@@ -372,7 +372,7 @@ func TestSqlTable(t *testing.T) {
 
 		var gotNb int64
 		gotErr := util.SqlTransaction(ctx, db, func(tx *sql.Tx) {
-			gotNb = table.DeleteRows(ctx, tx, util.NewSqlCondition("id = %s", 1001))
+			gotNb = table.DeleteRows(ctx, tx, util.NewSqlCondition("id = $_", 1001))
 		})
 
 		require.Equal(t, nil, gotErr, "wrong error")

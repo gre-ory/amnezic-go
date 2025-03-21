@@ -32,13 +32,13 @@ type sessionHandler struct {
 
 func (h *sessionHandler) RegisterRoutes(router *httprouter.Router) {
 
-	router.HandlerFunc(http.MethodGet, "/api/login", h.handleLogin)
-	router.HandlerFunc(http.MethodGet, "/api/logout", h.handleLogout)
+	router.HandlerFunc(http.MethodPut, "/api/login", h.handleLogin)
+	router.HandlerFunc(http.MethodDelete, "/api/logout", h.handleLogout)
 
-	hasSessionPermission := NewPermissionGranter(h.logger, h.sessionService, model.Permission_Session)
+	withSessionPermission := WithPermission(h.logger, h.sessionService, model.Permission_Session)
 
-	router.HandlerFunc(http.MethodGet, "/api/session", Protect(hasSessionPermission, h.handleListSession))
-	router.HandlerFunc(http.MethodDelete, "/api/session", Protect(hasSessionPermission, h.handleFlushSession))
+	router.HandlerFunc(http.MethodGet, "/api/session", withSessionPermission(h.handleListSession))
+	router.HandlerFunc(http.MethodDelete, "/api/session", withSessionPermission(h.handleFlushSession))
 }
 
 // //////////////////////////////////////////////////
@@ -144,7 +144,6 @@ func (h *sessionHandler) handleLogin(resp http.ResponseWriter, req *http.Request
 
 	var loginRequest *model.LoginRequest
 	var session *model.Session
-	var user *model.User
 	var err error
 
 	switch {
@@ -165,7 +164,7 @@ func (h *sessionHandler) handleLogin(resp http.ResponseWriter, req *http.Request
 		// execute
 		//
 
-		session, user, err = h.sessionService.Login(ctx, loginRequest)
+		session, err = h.sessionService.Login(ctx, loginRequest)
 		if err != nil {
 			break
 		}
@@ -176,7 +175,7 @@ func (h *sessionHandler) handleLogin(resp http.ResponseWriter, req *http.Request
 
 		resp.Header().Set("Content-Type", "application/json")
 		resp.WriteHeader(http.StatusOK)
-		err = json.NewEncoder(resp).Encode(toJsonSessionResponse(session, user))
+		err = json.NewEncoder(resp).Encode(toJsonSessionResponse(session))
 		if err != nil {
 			break
 		}
@@ -295,20 +294,25 @@ func toJsonSessionsResponse(sessions []*model.Session) *JsonSessionsResponse {
 	}
 }
 
-func toJsonSessionResponse(session *model.Session, user *model.User) *JsonSessionResponse {
+func toJsonSessionResponse(session *model.Session) *JsonSessionResponse {
 	return &JsonSessionResponse{
 		Success: true,
 		Session: toJsonSession(session),
-		User:    toJsonUser(user),
 	}
 }
 
 func toJsonSession(session *model.Session) *JsonSession {
-	return &JsonSession{
-		Token:      session.Token.String(),
-		UserId:     session.UserId.ToInt64(),
-		Expiration: session.Expiration.Format("2006-01-02T15:04:05Z"),
+	jsonSession := &JsonSession{
+		Token:        session.Token.String(),
+		ExpirationTs: session.Expiration.Unix(),
+		Expiration:   session.Expiration.Format("2006-01-02T15:04:05Z"),
 	}
+	if session.User != nil {
+		jsonSession.User = toJsonUser(session.User)
+	} else {
+		jsonSession.UserId = session.UserId.ToInt64()
+	}
+	return jsonSession
 }
 
 type JsonSessionsResponse struct {
@@ -319,13 +323,14 @@ type JsonSessionsResponse struct {
 type JsonSessionResponse struct {
 	Success bool         `json:"success,omitempty"`
 	Session *JsonSession `json:"session,omitempty"`
-	User    *JsonUser    `json:"user,omitempty"`
 }
 
 type JsonSession struct {
-	Token      string `json:"token,omitempty"`
-	UserId     int64  `json:"userId,omitempty"`
-	Expiration string `json:"expiration,omitempty"`
+	Token        string    `json:"token,omitempty"`
+	UserId       int64     `json:"userId,omitempty"`
+	User         *JsonUser `json:"user,omitempty"`
+	ExpirationTs int64     `json:"expirationTs,omitempty"`
+	Expiration   string    `json:"expiration,omitempty"`
 }
 
 // // //////////////////////////////////////////////////

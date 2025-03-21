@@ -1,6 +1,6 @@
 module github.com/gre-ory/amnezic-go
 
-go 1.19
+go 1.22
 
 require (
 	github.com/julienschmidt/httprouter v1.3.0
@@ -11,10 +11,15 @@ require (
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
 )
 
-require golang.org/x/crypto v0.18.0 // indirect
+require (
+	golang.org/x/crypto v0.18.0
+	golang.org/x/text v0.14.0
+)
+
+require github.com/sethvargo/go-envconfig v1.1.1 // indirect
 
 require (
-	github.com/DATA-DOG/go-sqlmock v1.5.0 // indirect
+	github.com/DATA-DOG/go-sqlmock v1.5.0
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/golang-jwt/jwt v3.2.2+incompatible
 	github.com/pmezard/go-difflib v1.0.0 // indirect

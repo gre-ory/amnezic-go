@@ -37,17 +37,17 @@ type themeHandler struct {
 
 func (h *themeHandler) RegisterRoutes(router *httprouter.Router) {
 
-	hasThemePermission := NewPermissionGranter(h.logger, h.sessionService, model.Permission_Theme)
+	router.HandlerFunc(http.MethodGet, "/api/theme", h.handleListTheme)
+	router.HandlerFunc(http.MethodGet, "/api/theme/:theme_id", h.handleRetrieveTheme)
 
-	router.HandlerFunc(http.MethodGet, "/api/theme", Protect(hasThemePermission, h.handleListTheme))
-	router.HandlerFunc(http.MethodPut, "/api/theme/new", Protect(hasThemePermission, h.handleCreateTheme))
-	router.HandlerFunc(http.MethodGet, "/api/theme/:theme_id", Protect(hasThemePermission, h.handleRetrieveTheme))
-	router.HandlerFunc(http.MethodPost, "/api/theme/:theme_id", Protect(hasThemePermission, h.handleUpdateTheme))
-	router.HandlerFunc(http.MethodDelete, "/api/theme/:theme_id", Protect(hasThemePermission, h.handleDeleteTheme))
+	withThemePermission := WithPermission(h.logger, h.sessionService, model.Permission_Theme)
 
-	router.HandlerFunc(http.MethodPut, "/api/theme-question/:theme_id/new", Protect(hasThemePermission, h.handleAddQuestion))
-	router.HandlerFunc(http.MethodPost, "/api/theme-question/:theme_id/:question_id", Protect(hasThemePermission, h.handleUpdateQuestion))
-	router.HandlerFunc(http.MethodDelete, "/api/theme-question/:theme_id/:question_id", Protect(hasThemePermission, h.handleRemoveQuestion))
+	router.HandlerFunc(http.MethodPut, "/api/theme/new", withThemePermission(h.handleCreateTheme))
+	router.HandlerFunc(http.MethodPost, "/api/theme/:theme_id", withThemePermission(h.handleUpdateTheme))
+	router.HandlerFunc(http.MethodDelete, "/api/theme/:theme_id", withThemePermission(h.handleDeleteTheme))
+	router.HandlerFunc(http.MethodPut, "/api/theme-question/:theme_id/new", withThemePermission(h.handleAddQuestion))
+	router.HandlerFunc(http.MethodPost, "/api/theme-question/:theme_id/:question_id", withThemePermission(h.handleUpdateQuestion))
+	router.HandlerFunc(http.MethodDelete, "/api/theme-question/:theme_id/:question_id", withThemePermission(h.handleRemoveQuestion))
 }
 
 // //////////////////////////////////////////////////

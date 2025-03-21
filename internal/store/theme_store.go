@@ -3,7 +3,6 @@ package store
 import (
 	"context"
 	"database/sql"
-	"fmt"
 	"strings"
 
 	"github.com/gre-ory/amnezic-go/internal/model"
@@ -62,9 +61,7 @@ func (s *themeStore) EncodeLabels(labels map[string]string) string {
 	if len(labels) == 0 {
 		return ""
 	}
-	return util.JoinMap(labels, func(key string, value string) string {
-		return fmt.Sprintf("%s=%s", key, value)
-	})
+	return util.JoinMap(labels, ",")
 }
 
 func (s *themeStore) DecodeRow(row *ThemeRow) *model.Theme {
@@ -135,14 +132,14 @@ func (s *themeStore) List(ctx context.Context, tx *sql.Tx, filter *model.ThemeFi
 // where clause
 
 func (s *themeStore) matchingId(id model.ThemeId) util.SqlWhereClause {
-	return util.NewSqlCondition("id = %s", id)
+	return util.NewSqlCondition("id = $_", id)
 }
 
 func (s *themeStore) whereClause(filter *model.ThemeFilter) util.SqlWhereClause {
 	wc := util.NewSqlWhereClause()
 	if filter != nil {
 		if filter.ThemeId != 0 {
-			wc.WithCondition("id = %s", filter.ThemeId)
+			wc.WithCondition("id = $_", filter.ThemeId)
 		}
 	}
 	return wc

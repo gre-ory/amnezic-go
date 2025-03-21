@@ -38,7 +38,7 @@ func TestLegacyMusicStore(t *testing.T) {
 			Music: &model.Music{
 				Id:     3006021,
 				Name:   "Time After Time",
-				Mp3Url: "http://root/95532_EvaCassidy_TimeAfterTime_2000.mp3",
+				Mp3Url: model.Url("http://root/95532_EvaCassidy_TimeAfterTime_2000.mp3"),
 				Artist: &model.MusicArtist{
 					Name: "Eva Cassidy",
 				},
@@ -85,7 +85,7 @@ func Off_TestReproduce(t *testing.T) {
 		Music: &model.Music{
 			Id:     2017,
 			Name:   "Purple rain",
-			Mp3Url: "http://root/6496_Prince_Purplerain_1984.mp3",
+			Mp3Url: model.Url("http://root/6496_Prince_Purplerain_1984.mp3"),
 		},
 		Answers: []*model.GameAnswer{
 			{

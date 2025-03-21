@@ -120,11 +120,11 @@ func (s *gameQuestionLegacyMusicStore) toMusic(ctx context.Context, media *JsonL
 	}
 }
 
-func (s *gameQuestionLegacyMusicStore) toMp3Url(ctx context.Context, media *JsonLegacyMedia) string {
+func (s *gameQuestionLegacyMusicStore) toMp3Url(ctx context.Context, media *JsonLegacyMedia) model.Url {
 	if s.rootPath != "" {
-		return fmt.Sprintf("%s/%s", s.rootPath, media.MusicFileName)
+		return model.Url(fmt.Sprintf("%s/%s", s.rootPath, media.MusicFileName))
 	}
-	return media.MusicFileName
+	return model.Url(media.MusicFileName)
 }
 
 func (s *gameQuestionLegacyMusicStore) toArtist(ctx context.Context, artist *JsonLegacyArtist) *model.MusicArtist {

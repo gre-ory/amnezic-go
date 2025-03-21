@@ -14,10 +14,10 @@ import (
 // deezer client
 
 type DeezerClient interface {
-	SearchMusic(search *model.SearchMusicRequest) ([]*model.Music, error)
+	SearchMusic(search *model.SearchDeezerMusicRequest) ([]*model.Music, error)
 	GetMusic(trackId model.DeezerMusicId) (*model.Music, error)
 
-	SearchPlaylist(search *model.SearchPlaylistRequest) ([]*model.Playlist, error)
+	SearchPlaylist(search *model.SearchDeezerPlaylistRequest) ([]*model.Playlist, error)
 	GetPlaylist(id model.DeezerPlaylistId, withTracks bool) (*model.Playlist, error)
 }
 
@@ -34,11 +34,11 @@ type deezerClient struct {
 // //////////////////////////////////////////////////
 // search musics
 
-func (c *deezerClient) SearchMusic(search *model.SearchMusicRequest) ([]*model.Music, error) {
+func (c *deezerClient) SearchMusic(search *model.SearchDeezerMusicRequest) ([]*model.Music, error) {
 
 	c.logger.Info(fmt.Sprintf("[client] search-music: req=%#v", search))
 
-	url := fmt.Sprintf("https://api.deezer.com/search/track%s", search.ComputeParameters())
+	url := fmt.Sprintf("https://api.deezer.com/search/track%s", search.ComputeDeezerParameters())
 	c.logger.Info(fmt.Sprintf("[client] search-music: url=%s", url))
 
 	resp, err := http.Get(url)
@@ -84,7 +84,7 @@ func (c *deezerClient) GetMusic(trackId model.DeezerMusicId) (*model.Music, erro
 // //////////////////////////////////////////////////
 // search playlists
 
-func (c *deezerClient) SearchPlaylist(search *model.SearchPlaylistRequest) ([]*model.Playlist, error) {
+func (c *deezerClient) SearchPlaylist(search *model.SearchDeezerPlaylistRequest) ([]*model.Playlist, error) {
 
 	c.logger.Info(fmt.Sprintf("[client] search-playlist: req=%#v", search))
 
@@ -159,7 +159,7 @@ func toMusic(jsonTrack *JsonDeezerTrack) *model.Music {
 	return &model.Music{
 		DeezerId: model.DeezerMusicId(jsonTrack.Id),
 		Name:     jsonTrack.Title,
-		Mp3Url:   jsonTrack.Preview,
+		Mp3Url:   model.Url(jsonTrack.Preview),
 		Artist:   toArtist(jsonTrack.Artist),
 		Album:    toAlbum(jsonTrack.Album),
 	}
@@ -172,7 +172,7 @@ func toArtist(jsonArtist *JsonDeezerArtist) *model.MusicArtist {
 	return &model.MusicArtist{
 		DeezerId: model.DeezerArtistId(jsonArtist.Id),
 		Name:     jsonArtist.Name,
-		ImgUrl:   jsonArtist.Picture,
+		ImgUrl:   model.Url(jsonArtist.Picture),
 	}
 }
 
@@ -183,7 +183,7 @@ func toAlbum(jsonAlbum *JsonDeezerAlbum) *model.MusicAlbum {
 	return &model.MusicAlbum{
 		DeezerId: model.DeezerAlbumId(jsonAlbum.Id),
 		Name:     jsonAlbum.Title,
-		ImgUrl:   jsonAlbum.Cover,
+		ImgUrl:   model.Url(jsonAlbum.Cover),
 	}
 }
 

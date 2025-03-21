@@ -19,8 +19,8 @@ import (
 // session service
 
 type SessionService interface {
-	Login(ctx context.Context, login *model.LoginRequest) (*model.Session, *model.User, error)
-	IsGranted(ctx context.Context, token model.SessionToken, permission model.Permission) (*model.User, error)
+	Login(ctx context.Context, login *model.LoginRequest) (*model.Session, error)
+	IsGranted(ctx context.Context, token model.SessionToken, permission model.Permission) (*model.Session, error)
 	Logout(ctx context.Context, token model.SessionToken) error
 
 	ListSessions(ctx context.Context) ([]*model.Session, error)
@@ -94,12 +94,12 @@ func (s *sessionService) FlushSessions(ctx context.Context) error {
 // //////////////////////////////////////////////////
 // login
 
-func (s *sessionService) Login(ctx context.Context, login *model.LoginRequest) (*model.Session, *model.User, error) {
+func (s *sessionService) Login(ctx context.Context, login *model.LoginRequest) (*model.Session, error) {
 
 	now := time.Now()
 
-	var user *model.User
 	var session *model.Session
+	var user *model.User
 	err := util.SqlTransaction(ctx, s.db, func(tx *sql.Tx) {
 
 		//
@@ -135,6 +135,7 @@ func (s *sessionService) Login(ctx context.Context, login *model.LoginRequest) (
 		// check password
 		//
 
+		s.logger.Info(fmt.Sprintf("[DEBUG] check password for user %d: %s >>> %s", user.Id, login.Password, user.Hash))
 		err := bcrypt.CompareHashAndPassword([]byte(user.Hash), []byte(login.Password))
 		if err != nil {
 			s.logger.Info(fmt.Sprintf("[DEBUG] invalid password for user %d", user.Id), zap.Error(err))
@@ -156,10 +157,11 @@ func (s *sessionService) Login(ctx context.Context, login *model.LoginRequest) (
 
 	if err != nil {
 		s.logger.Info(fmt.Sprintf("[ KO ] login for user %s", login.Name), zap.Error(err))
-		return nil, nil, err
+		return nil, err
 	}
 	s.logger.Info(fmt.Sprintf("[ OK ] login for user %s", login.Name), zap.Object("session", session), zap.Object("user", user))
-	return session, user, nil
+	session.User = user
+	return session, nil
 }
 
 func (s *sessionService) newSession(userId model.UserId, ttl time.Duration) (*model.Session, error) {
@@ -189,7 +191,7 @@ func (s *sessionService) newSession(userId model.UserId, ttl time.Duration) (*mo
 // //////////////////////////////////////////////////
 // retrieve
 
-func (s *sessionService) IsGranted(ctx context.Context, token model.SessionToken, permission model.Permission) (*model.User, error) {
+func (s *sessionService) IsGranted(ctx context.Context, token model.SessionToken, permission model.Permission) (*model.Session, error) {
 
 	now := time.Now()
 
@@ -252,7 +254,8 @@ func (s *sessionService) IsGranted(ctx context.Context, token model.SessionToken
 		return nil, err
 	}
 	s.logger.Info(fmt.Sprintf("[ OK ] is granted for permission %s", permission))
-	return user, nil
+	session.User = user
+	return session, nil
 }
 
 // //////////////////////////////////////////////////

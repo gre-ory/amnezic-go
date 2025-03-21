@@ -63,7 +63,7 @@ func (s *userStore) EncodePermissions(permissions []model.Permission) string {
 	if len(permissions) == 0 {
 		return ""
 	}
-	return util.Join(permissions, model.Permission.String)
+	return util.Join(permissions, ",")
 }
 
 func (s *userStore) DecodeRow(row *UserRow) *model.User {
@@ -143,18 +143,18 @@ func (s *userStore) List(ctx context.Context, tx *sql.Tx, filter *model.UserFilt
 // where clause
 
 func (s *userStore) matchingId(id model.UserId) util.SqlWhereClause {
-	return util.NewSqlCondition("id = %s", id)
+	return util.NewSqlCondition("id = $_", id)
 }
 
 func (s *userStore) matchingName(name string) util.SqlWhereClause {
-	return util.NewSqlCondition("name = %s", name)
+	return util.NewSqlCondition("name = $_", name)
 }
 
 func (s *userStore) whereClause(filter *model.UserFilter) util.SqlWhereClause {
 	wc := util.NewSqlWhereClause()
 	if filter != nil {
 		if filter.UserId != 0 {
-			wc.WithCondition("id = %s", filter.UserId)
+			wc.WithCondition("id = $_", filter.UserId)
 		}
 	}
 	return wc

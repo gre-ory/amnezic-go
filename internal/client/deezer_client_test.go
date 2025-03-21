@@ -13,7 +13,7 @@ func TestSearchMusic(t *testing.T) {
 
 	logger := zap.L()
 	deezerClient := client.NewDeezerClient(logger)
-	req := model.NewSearchMusicRequest().WithQuery("harder better").WithLimit(1).WithStrict(true)
+	req := model.NewSearchDeezerMusicRequest().WithQuery("harder better").WithLimit(1).WithStrict(true)
 	musics, err := deezerClient.SearchMusic(req)
 
 	require.Equal(t, nil, err, "wrong error")
@@ -21,16 +21,16 @@ func TestSearchMusic(t *testing.T) {
 		{
 			DeezerId: 3135556,
 			Name:     "Harder, Better, Faster, Stronger",
-			Mp3Url:   "https://cdns-preview-d.dzcdn.net/stream/c-deda7fa9316d9e9e880d2c6207e92260-10.mp3",
+			Mp3Url:   model.Url("https://cdns-preview-d.dzcdn.net/stream/c-deda7fa9316d9e9e880d2c6207e92260-10.mp3"),
 			Artist: &model.MusicArtist{
 				DeezerId: 27,
 				Name:     "Daft Punk",
-				ImgUrl:   "https://api.deezer.com/artist/27/image",
+				ImgUrl:   model.Url("https://api.deezer.com/artist/27/image"),
 			},
 			Album: &model.MusicAlbum{
 				DeezerId: 302127,
 				Name:     "Discovery",
-				ImgUrl:   "https://api.deezer.com/album/302127/image",
+				ImgUrl:   model.Url("https://api.deezer.com/album/302127/image"),
 			},
 		},
 	}, musics, "wrong musics")
@@ -47,16 +47,16 @@ func TestGetMusic(t *testing.T) {
 	require.Equal(t, &model.Music{
 		DeezerId: 3135556,
 		Name:     "Harder, Better, Faster, Stronger",
-		Mp3Url:   "https://cdns-preview-d.dzcdn.net/stream/c-deda7fa9316d9e9e880d2c6207e92260-10.mp3",
+		Mp3Url:   model.Url("https://cdns-preview-d.dzcdn.net/stream/c-deda7fa9316d9e9e880d2c6207e92260-10.mp3"),
 		Artist: &model.MusicArtist{
 			DeezerId: 27,
 			Name:     "Daft Punk",
-			ImgUrl:   "https://api.deezer.com/artist/27/image",
+			ImgUrl:   model.Url("https://api.deezer.com/artist/27/image"),
 		},
 		Album: &model.MusicAlbum{
 			DeezerId: 302127,
 			Name:     "Discovery",
-			ImgUrl:   "https://api.deezer.com/album/302127/image",
+			ImgUrl:   model.Url("https://api.deezer.com/album/302127/image"),
 		},
 	}, music, "wrong music")
 
@@ -66,7 +66,7 @@ func TestSearchPlaylist(t *testing.T) {
 
 	logger := zap.L()
 	deezerClient := client.NewDeezerClient(logger)
-	req := model.NewSearchPlaylistRequest().WithQuery("eminem").WithLimit(1).WithStrict(true)
+	req := model.NewSearchDeezerPlaylistRequest().WithQuery("eminem").WithLimit(1).WithStrict(true)
 	playlists, err := deezerClient.SearchPlaylist(req)
 
 	require.Equal(t, nil, err, "wrong error")

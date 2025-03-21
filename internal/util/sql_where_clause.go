@@ -43,11 +43,13 @@ func (wc *sqlWhereClause) IsEmpty() bool {
 	return wc == nil || len(wc.conditions) == 0
 }
 
+const NumberedPlaceHolder = "$_"
+
 func (wc *sqlWhereClause) WithCondition(condition string, args ...any) SqlWhereClause {
 	if wc != nil {
-		count := strings.Count(condition, "%s")
+		count := strings.Count(condition, NumberedPlaceHolder)
 		if count != len(args) {
-			panic(fmt.Sprintf("mismatch between number of placeholders '%%s' (%d) and number of arg (%d)! ( condition: '%s', args: %#v )", count, len(args), condition, args))
+			panic(fmt.Sprintf("mismatch between number of placeholders '%s' (%d) and number of arguments (%d)! ( condition: '%s', args: %#v )", NumberedPlaceHolder, count, len(args), condition, args))
 		}
 		wc.conditions = append(wc.conditions, condition)
 		wc.args = append(wc.args, args...)
@@ -69,12 +71,10 @@ func (wc *sqlWhereClause) Generate(placeHolder int) (string, []any) {
 	var whereClause string
 	if !wc.IsEmpty() {
 		whereClause = "WHERE " + strings.Join(wc.conditions, " AND ")
-		placeHolders := make([]any, 0, len(wc.args))
 		for range wc.args {
 			placeHolder++
-			placeHolders = append(placeHolders, fmt.Sprintf("$%d", placeHolder))
+			whereClause = strings.Replace(whereClause, NumberedPlaceHolder, fmt.Sprintf("$%d", placeHolder), 1)
 		}
-		whereClause = fmt.Sprintf(whereClause, placeHolders...)
 	}
 	if wc.orderBy != "" {
 		if whereClause != "" {
