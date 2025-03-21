@@ -14,10 +14,15 @@ export PORT=${PORT}
 
 BIN="${PWD}/bin/amnezic-go"
 
+# build
+
+make build
+
 # source
 
 source go-source "${BIN}" "${PHASE}"
 
+print-info "LOG_FILE=${LOG_FILE}"
 print-info "SERVER_ADDRESS=$( color yellow ${SERVER_ADDRESS} )"
 print-info "SQLITE_DATA_SOURCE=${SQLITE_DATA_SOURCE}"
 
@@ -27,6 +32,4 @@ go-goose-sqlite "${BIN}" "${PHASE}" up
 
 # run
 
-go-run "${BIN}" "${PHASE}"
-
-cd $CURRENT_DIR
+exec go-run "${BIN}" "${PHASE}"
