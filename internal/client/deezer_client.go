@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/gre-ory/amnezic-go/internal/model"
 	"github.com/gre-ory/amnezic-go/internal/util"
@@ -24,11 +25,15 @@ type DeezerClient interface {
 func NewDeezerClient(logger *zap.Logger) DeezerClient {
 	return &deezerClient{
 		logger: logger,
+		client: &http.Client{
+			Timeout: 10 * time.Second,
+		},
 	}
 }
 
 type deezerClient struct {
 	logger *zap.Logger
+	client *http.Client
 }
 
 // //////////////////////////////////////////////////
@@ -41,7 +46,7 @@ func (c *deezerClient) SearchMusic(search *model.SearchDeezerMusicRequest) ([]*m
 	url := fmt.Sprintf("https://api.deezer.com/search/track%s", search.ComputeDeezerParameters())
 	c.logger.Info(fmt.Sprintf("[client] search-music: url=%s", url))
 
-	resp, err := http.Get(url)
+	resp, err := c.client.Get(url)
 	if err != nil {
 		c.logger.Info(fmt.Sprintf("[client] search-music: >>> error: %s", err.Error()), zap.Error(err))
 		return nil, err
@@ -66,7 +71,7 @@ func (c *deezerClient) SearchMusic(search *model.SearchDeezerMusicRequest) ([]*m
 func (c *deezerClient) GetMusic(trackId model.DeezerMusicId) (*model.Music, error) {
 
 	url := fmt.Sprintf("https://api.deezer.com/track/%d", trackId)
-	resp, err := http.Get(url)
+	resp, err := c.client.Get(url)
 	if err != nil {
 		return nil, err
 	}
@@ -100,7 +105,7 @@ func (c *deezerClient) SearchPlaylist(search *model.SearchDeezerPlaylistRequest)
 	url := fmt.Sprintf("https://api.deezer.com/search/playlist%s", search.ComputeParameters())
 	c.logger.Info(fmt.Sprintf("[client] search-playlist: url=%s", url))
 
-	resp, err := http.Get(url)
+	resp, err := c.client.Get(url)
 	if err != nil {
 		c.logger.Info(fmt.Sprintf("[client] search-playlist: >>> error: %s", err.Error()), zap.Error(err))
 		return nil, err
@@ -129,7 +134,7 @@ func (c *deezerClient) GetPlaylist(id model.DeezerPlaylistId, withTracks bool) (
 	url := fmt.Sprintf("https://api.deezer.com/playlist/%d", id)
 	c.logger.Info(fmt.Sprintf("[client] get-playlist: url=%s", url))
 
-	resp, err := http.Get(url)
+	resp, err := c.client.Get(url)
 	if err != nil {
 		c.logger.Info(fmt.Sprintf("[client] get-playlist: >>> error: %s", err.Error()), zap.Error(err))
 		return nil, err

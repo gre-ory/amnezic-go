@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/gre-ory/amnezic-go/internal/model"
 	"go.uber.org/zap"
@@ -21,7 +22,10 @@ type DownloadClient interface {
 
 func NewDownloadClient(logger *zap.Logger, musicFilter *model.FileFilter, imageFilter *model.FileFilter) DownloadClient {
 	return &downloadClient{
-		logger:      logger,
+		logger: logger,
+		client: &http.Client{
+			Timeout: 10 * time.Second,
+		},
 		musicFilter: musicFilter,
 		imageFilter: imageFilter,
 	}
@@ -29,6 +33,7 @@ func NewDownloadClient(logger *zap.Logger, musicFilter *model.FileFilter, imageF
 
 type downloadClient struct {
 	logger      *zap.Logger
+	client      *http.Client
 	musicFilter *model.FileFilter
 	imageFilter *model.FileFilter
 }
@@ -69,7 +74,7 @@ func (c *downloadClient) download(url model.Url, writer io.Writer) (err error) {
 
 	// Get the data
 
-	resp, err := http.Get(string(url))
+	resp, err := c.client.Get(string(url))
 	if err != nil {
 		c.logger.Info(fmt.Sprintf("[ KO ] download from url %s", url), zap.Error(err))
 		return err

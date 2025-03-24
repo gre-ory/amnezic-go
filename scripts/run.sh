@@ -20,7 +20,7 @@ make build
 
 # source
 
-source go-source "${BIN}" "${PHASE}"
+source go-source-bin-env "${BIN}" "${PHASE}"
 
 print-info "LOG_FILE=${LOG_FILE}"
 print-info "SERVER_ADDRESS=$( color yellow ${SERVER_ADDRESS} )"
@@ -32,4 +32,4 @@ go-goose-sqlite "${BIN}" "${PHASE}" up
 
 # run
 
-exec go-run "${BIN}" "${PHASE}"
+exec go-run-bin "${BIN}" "${PHASE}"
