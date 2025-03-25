@@ -135,6 +135,7 @@ func (s *Server) Run(ctx context.Context) {
 	// api
 	//
 
+	healthHandler := api.NewHealthhandler(s.logger)
 	gameHandler := api.NewGamehandler(s.logger, gameService)
 	playlistHandler := api.NewPlaylisthandler(s.logger, musicService)
 	musicHandler := api.NewMusichandler(s.logger, musicService, sessionService)
@@ -150,6 +151,7 @@ func (s *Server) Run(ctx context.Context) {
 	//
 
 	router := httprouter.New()
+	healthHandler.RegisterRoutes(router)
 	gameHandler.RegisterRoutes(router)
 	musicHandler.RegisterRoutes(router)
 	artistHandler.RegisterRoutes(router)

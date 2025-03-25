@@ -34,13 +34,13 @@ type albumHandler struct {
 // register
 
 func (h *albumHandler) RegisterRoutes(router *httprouter.Router) {
-	router.HandlerFunc(http.MethodGet, "/api/album/:album_id", h.handleRetrieveAlbum)
+	router.HandlerFunc(http.MethodGet, "/album/:album_id", h.handleRetrieveAlbum)
 
 	withAlbumPermission := WithPermission(h.logger, h.sessionService, model.Permission_Music)
 
-	router.HandlerFunc(http.MethodPut, "/api/album/new", withAlbumPermission(h.handleCreateAlbum))
-	router.HandlerFunc(http.MethodPost, "/api/album/:album_id", withAlbumPermission(h.handleUpdateAlbum))
-	router.HandlerFunc(http.MethodDelete, "/api/album/:album_id", withAlbumPermission(h.handleDeleteAlbum))
+	router.HandlerFunc(http.MethodPut, "/album/new", withAlbumPermission(h.handleCreateAlbum))
+	router.HandlerFunc(http.MethodPost, "/album/:album_id", withAlbumPermission(h.handleUpdateAlbum))
+	router.HandlerFunc(http.MethodDelete, "/album/:album_id", withAlbumPermission(h.handleDeleteAlbum))
 }
 
 // //////////////////////////////////////////////////

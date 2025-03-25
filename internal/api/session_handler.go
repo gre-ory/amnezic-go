@@ -32,13 +32,13 @@ type sessionHandler struct {
 
 func (h *sessionHandler) RegisterRoutes(router *httprouter.Router) {
 
-	router.HandlerFunc(http.MethodPut, "/api/login", h.handleLogin)
-	router.HandlerFunc(http.MethodDelete, "/api/logout", h.handleLogout)
+	router.HandlerFunc(http.MethodPut, "/login", h.handleLogin)
+	router.HandlerFunc(http.MethodDelete, "/logout", h.handleLogout)
 
 	withSessionPermission := WithPermission(h.logger, h.sessionService, model.Permission_Session)
 
-	router.HandlerFunc(http.MethodGet, "/api/session", withSessionPermission(h.handleListSession))
-	router.HandlerFunc(http.MethodDelete, "/api/session", withSessionPermission(h.handleFlushSession))
+	router.HandlerFunc(http.MethodGet, "/session", withSessionPermission(h.handleListSession))
+	router.HandlerFunc(http.MethodDelete, "/session", withSessionPermission(h.handleFlushSession))
 }
 
 // //////////////////////////////////////////////////

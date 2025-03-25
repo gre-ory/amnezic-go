@@ -34,13 +34,13 @@ type artistHandler struct {
 // register
 
 func (h *artistHandler) RegisterRoutes(router *httprouter.Router) {
-	router.HandlerFunc(http.MethodGet, "/api/artist/:artist_id", h.handleRetrieveArtist)
+	router.HandlerFunc(http.MethodGet, "/artist/:artist_id", h.handleRetrieveArtist)
 
 	withArtistPermission := WithPermission(h.logger, h.sessionService, model.Permission_Music)
 
-	router.HandlerFunc(http.MethodPut, "/api/artist/new", withArtistPermission(h.handleCreateArtist))
-	router.HandlerFunc(http.MethodPost, "/api/artist/:artist_id", withArtistPermission(h.handleUpdateArtist))
-	router.HandlerFunc(http.MethodDelete, "/api/artist/:artist_id", withArtistPermission(h.handleDeleteArtist))
+	router.HandlerFunc(http.MethodPut, "/artist/new", withArtistPermission(h.handleCreateArtist))
+	router.HandlerFunc(http.MethodPost, "/artist/:artist_id", withArtistPermission(h.handleUpdateArtist))
+	router.HandlerFunc(http.MethodDelete, "/artist/:artist_id", withArtistPermission(h.handleDeleteArtist))
 }
 
 // //////////////////////////////////////////////////

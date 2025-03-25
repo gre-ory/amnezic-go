@@ -31,8 +31,8 @@ type playlistHandler struct {
 // register
 
 func (h *playlistHandler) RegisterRoutes(router *httprouter.Router) {
-	router.HandlerFunc(http.MethodGet, "/api/deezer/playlist", h.handleSearchDeezerPlaylist)
-	router.HandlerFunc(http.MethodGet, "/api/deezer/playlist/:playlist_id", h.handleRetrieveDeezerPlaylist)
+	router.HandlerFunc(http.MethodGet, "/deezer/playlist", h.handleSearchDeezerPlaylist)
+	router.HandlerFunc(http.MethodGet, "/deezer/playlist/:playlist_id", h.handleRetrieveDeezerPlaylist)
 }
 
 // //////////////////////////////////////////////////

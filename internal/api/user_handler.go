@@ -36,17 +36,17 @@ type userHandler struct {
 
 func (h *userHandler) RegisterRoutes(router *httprouter.Router) {
 
-	router.HandlerFunc(http.MethodPut, "/api/user/set-up", h.handleUserSetUp)
+	router.HandlerFunc(http.MethodPut, "/user/set-up", h.handleUserSetUp)
 
 	withUserPermission := WithPermission(h.logger, h.sessionService, model.Permission_User)
 
-	router.HandlerFunc(http.MethodGet, "/api/user", withUserPermission(h.handleListUser))
-	router.HandlerFunc(http.MethodGet, "/api/user/:user_id", withUserPermission(h.handleRetrieveUser))
-	router.HandlerFunc(http.MethodPut, "/api/user/new", withUserPermission(h.handleCreateUser))
-	router.HandlerFunc(http.MethodPost, "/api/user/:user_id", withUserPermission(h.handleUpdateUser))
-	router.HandlerFunc(http.MethodDelete, "/api/user/:user_id", withUserPermission(h.handleDeleteUser))
-	router.HandlerFunc(http.MethodPut, "/api/user-permission/:user_id/:permission", withUserPermission(h.handleAddPermission))
-	router.HandlerFunc(http.MethodDelete, "/api/user-permission/:user_id/:permission", withUserPermission(h.handleRemovePermission))
+	router.HandlerFunc(http.MethodGet, "/user", withUserPermission(h.handleListUser))
+	router.HandlerFunc(http.MethodGet, "/user/:user_id", withUserPermission(h.handleRetrieveUser))
+	router.HandlerFunc(http.MethodPut, "/user/new", withUserPermission(h.handleCreateUser))
+	router.HandlerFunc(http.MethodPost, "/user/:user_id", withUserPermission(h.handleUpdateUser))
+	router.HandlerFunc(http.MethodDelete, "/user/:user_id", withUserPermission(h.handleDeleteUser))
+	router.HandlerFunc(http.MethodPut, "/user-permission/:user_id/:permission", withUserPermission(h.handleAddPermission))
+	router.HandlerFunc(http.MethodDelete, "/user-permission/:user_id/:permission", withUserPermission(h.handleRemovePermission))
 }
 
 // //////////////////////////////////////////////////

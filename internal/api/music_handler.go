@@ -34,14 +34,14 @@ type musicHandler struct {
 // register
 
 func (h *musicHandler) RegisterRoutes(router *httprouter.Router) {
-	router.HandlerFunc(http.MethodGet, "/api/deezer/music", h.handleSearchDeezerMusic)
-	router.HandlerFunc(http.MethodGet, "/api/music/:music_id", h.handleRetrieveMusic)
+	router.HandlerFunc(http.MethodGet, "/deezer/music", h.handleSearchDeezerMusic)
+	router.HandlerFunc(http.MethodGet, "/music/:music_id", h.handleRetrieveMusic)
 
 	withMusicPermission := WithPermission(h.logger, h.sessionService, model.Permission_Music)
 
-	router.HandlerFunc(http.MethodPut, "/api/music/new", withMusicPermission(h.handleCreateMusic))
-	router.HandlerFunc(http.MethodPost, "/api/music/:music_id", withMusicPermission(h.handleUpdateMusic))
-	router.HandlerFunc(http.MethodDelete, "/api/music/:music_id", withMusicPermission(h.handleDeleteMusic))
+	router.HandlerFunc(http.MethodPut, "/music/new", withMusicPermission(h.handleCreateMusic))
+	router.HandlerFunc(http.MethodPost, "/music/:music_id", withMusicPermission(h.handleUpdateMusic))
+	router.HandlerFunc(http.MethodDelete, "/music/:music_id", withMusicPermission(h.handleDeleteMusic))
 }
 
 // //////////////////////////////////////////////////

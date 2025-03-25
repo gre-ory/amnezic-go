@@ -32,10 +32,10 @@ type gameHandler struct {
 // register
 
 func (h *gameHandler) RegisterRoutes(router *httprouter.Router) {
-	router.HandlerFunc(http.MethodPut, "/api/game/new", h.handleCreateGame)
-	router.HandlerFunc(http.MethodGet, "/api/game/:game_id", h.handleRetrieveGame)
-	router.HandlerFunc(http.MethodPost, "/api/game/:game_id", h.handleUpdateGame)
-	router.HandlerFunc(http.MethodDelete, "/api/game/:game_id", h.handleDeleteGame)
+	router.HandlerFunc(http.MethodPut, "/game/new", h.handleCreateGame)
+	router.HandlerFunc(http.MethodGet, "/game/:game_id", h.handleRetrieveGame)
+	router.HandlerFunc(http.MethodPost, "/game/:game_id", h.handleUpdateGame)
+	router.HandlerFunc(http.MethodDelete, "/game/:game_id", h.handleDeleteGame)
 }
 
 // //////////////////////////////////////////////////
