@@ -26,8 +26,8 @@ type Config struct {
 		File    string `env:"FILE,required"`
 	} `env:",prefix=LOG_"`
 	Server struct {
-		KeyFile          string   `env:"KEY_FILE,required"`
-		CrtFile          string   `env:"CRT_FILE,required"`
+		KeyFile          string   `env:"KEY_FILE"`
+		CrtFile          string   `env:"CRT_FILE"`
 		Address          string   `env:"ADDRESS,required"`
 		WhiteListOrigins []string `env:"WHITE_LIST_ORIGINS"`
 	} `env:",prefix=SERVER_"`

@@ -178,10 +178,18 @@ func (s *Server) Run(ctx context.Context) {
 		},
 	}
 
-	s.logger.Info(fmt.Sprintf("starting backend server on %s", server.Addr))
-	err := server.ListenAndServeTLS(s.config.Server.CrtFile, s.config.Server.KeyFile)
-	if err != nil {
-		s.logger.Fatal("backend server failed", zap.Error(err))
+	if s.config.Server.CrtFile != "" && s.config.Server.KeyFile != "" {
+		s.logger.Info(fmt.Sprintf("starting TLS backend server on %s", server.Addr))
+		err := server.ListenAndServeTLS(s.config.Server.CrtFile, s.config.Server.KeyFile)
+		if err != nil {
+			s.logger.Fatal("TLS backend server failed", zap.Error(err))
+		}
+	} else {
+		s.logger.Info(fmt.Sprintf("starting backend server on %s", server.Addr))
+		err := server.ListenAndServe()
+		if err != nil {
+			s.logger.Fatal("backend server failed", zap.Error(err))
+		}
 	}
 }
 
